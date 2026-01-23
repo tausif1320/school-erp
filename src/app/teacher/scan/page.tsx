@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -9,20 +9,45 @@ import toast from 'react-hot-toast';
 export default function TeacherScanPage() {
   const router = useRouter();
   const qrRef = useRef<Html5Qrcode | null>(null);
+
+  const [ready, setReady] = useState(false);
   const [scanning, setScanning] = useState(false);
 
-  useEffect(() => {
-    startScan();
-    return () => {
-      stopScan();
-    };
-  }, []);
+  /* =========================
+     REQUEST PERMISSIONS
+  ========================= */
+  async function requestPermissions() {
+    try {
+      // 1️⃣ Ask location FIRST
+      await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+
+      // 2️⃣ Ask camera
+      const tempQr = new Html5Qrcode('temp-camera-check');
+      await tempQr.start(
+        { facingMode: 'environment' },
+        { fps: 1 },
+        () => {},
+        () => {}
+      );
+      await tempQr.stop();
+      await tempQr.clear();
+
+      setReady(true);
+    } catch {
+      toast.error('Camera and location permissions are required');
+    }
+  }
 
   /* =========================
      START QR SCAN
   ========================= */
   async function startScan() {
-    if (qrRef.current) return;
+    if (scanning || !ready) return;
 
     const qr = new Html5Qrcode('qr-reader');
     qrRef.current = qr;
@@ -38,7 +63,7 @@ export default function TeacherScanPage() {
         () => {}
       );
     } catch {
-      toast.error('Camera permission denied');
+      toast.error('Failed to start camera');
       setScanning(false);
     }
   }
@@ -59,7 +84,7 @@ export default function TeacherScanPage() {
   }
 
   /* =========================
-     HANDLE SCAN RESULT
+     HANDLE QR RESULT
   ========================= */
   async function handleScan(token: string) {
     await stopScan();
@@ -74,16 +99,9 @@ export default function TeacherScanPage() {
         throw new Error('Session expired. Please login again.');
       }
 
-      // 🔴 ONE location request only (mobile-safe)
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        });
+        navigator.geolocation.getCurrentPosition(resolve, reject);
       });
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/teacher-checkin`,
@@ -99,20 +117,11 @@ export default function TeacherScanPage() {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           }),
-          signal: controller.signal,
         }
       );
 
-      clearTimeout(timeout);
-
       const text = await res.text();
-      let data: any = {};
-
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        throw new Error('Invalid server response');
-      }
+      const data = text ? JSON.parse(text) : {};
 
       if (!res.ok) {
         throw new Error(data.error || 'Check-in failed');
@@ -121,11 +130,7 @@ export default function TeacherScanPage() {
       toast.success('Check-in successful');
       router.push('/teacher/dashboard');
     } catch (err: any) {
-      if (err.name === 'AbortError') {
-        toast.error('Request timed out');
-      } else {
-        toast.error(err.message || 'Something went wrong');
-      }
+      toast.error(err.message || 'Something went wrong');
     } finally {
       toast.dismiss(toastId);
     }
@@ -135,22 +140,29 @@ export default function TeacherScanPage() {
      UI
   ========================= */
   return (
-    <div className="flex flex-col items-center">
-      <h1 className="text-xl mb-4">Scan Attendance QR</h1>
+    <div className="flex flex-col items-center gap-4">
+      <h1 className="text-xl">Teacher Attendance</h1>
 
-      <div
-        id="qr-reader"
-        className="w-72 h-72 bg-black rounded-xl"
-      />
-
-      {!scanning && (
+      {!ready && (
         <button
-          onClick={startScan}
-          className="mt-4 px-4 py-2 bg-blue-600 rounded"
+          onClick={requestPermissions}
+          className="px-4 py-2 bg-blue-600 rounded"
         >
-          Restart Scan
+          Allow Camera & Location
         </button>
       )}
+
+      {ready && !scanning && (
+        <button
+          onClick={startScan}
+          className="px-4 py-2 bg-green-600 rounded"
+        >
+          Start Scan
+        </button>
+      )}
+
+      <div id="qr-reader" className="w-72 h-72 bg-black rounded-xl" />
+      <div id="temp-camera-check" className="hidden" />
     </div>
   );
 }
