@@ -75,11 +75,11 @@ export default function TeacherScanPage() {
     data: { session },
   } = await supabase.auth.getSession();
 
-  if (!session || !session.user?.email) {
-    toast.dismiss();
-    toast.error('Not authenticated. Please login again.');
-    return;
-  }
+  if (!session?.user?.email) {
+  toast.error('Session lost. Please login again.');
+  return;
+}
+
 
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
