@@ -13,14 +13,13 @@ export default function TeacherScanPage() {
 
   useEffect(() => {
     startScan();
-
     return () => {
       stopScan();
     };
   }, []);
 
   /* =========================
-     START SCANNING
+     START QR SCAN
   ========================= */
   async function startScan() {
     if (qrRef.current) return;
@@ -32,23 +31,20 @@ export default function TeacherScanPage() {
     try {
       await qr.start(
         { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
           await handleScan(decodedText);
         },
         () => {}
       );
-    } catch (err) {
-      toast.error('Camera access failed');
+    } catch {
+      toast.error('Camera permission denied');
       setScanning(false);
     }
   }
 
   /* =========================
-     STOP SCANNING
+     STOP SCAN
   ========================= */
   async function stopScan() {
     if (!qrRef.current) return;
@@ -56,99 +52,84 @@ export default function TeacherScanPage() {
     try {
       await qrRef.current.stop();
       await qrRef.current.clear();
-    } catch (_) {
-      // ignore
-    }
+    } catch {}
 
     qrRef.current = null;
     setScanning(false);
   }
 
   /* =========================
-     HANDLE QR RESULT
+     HANDLE SCAN RESULT
   ========================= */
   async function handleScan(token: string) {
-  await stopScan();
+    await stopScan();
+    const toastId = toast.loading('Validating QR...');
 
-  const toastId = toast.loading('Validating QR...');
-
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.user?.email) {
-      throw new Error('Session lost. Please login again.');
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s hard timeout
-
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/teacher-checkin`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          token,
-          email: session.user.email,
-          latitude: await getLatitude(),
-          longitude: await getLongitude(),
-        }),
-        signal: controller.signal,
-      }
-    );
-
-    clearTimeout(timeout);
-
-    const text = await res.text(); // ← IMPORTANT
-
-    let data: any = {};
     try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      throw new Error('Invalid response from server');
-    }
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (!res.ok) {
-      throw new Error(data.error || 'Check-in failed');
-    }
+      if (!session?.user?.email) {
+        throw new Error('Session expired. Please login again.');
+      }
 
-    toast.success('Check-in successful');
-    router.push('/teacher/dashboard');
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
-      toast.error('Request timed out');
-    } else {
-      toast.error(err.message || 'Unknown error');
+      // 🔴 ONE location request only (mobile-safe)
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/teacher-checkin`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            token,
+            email: session.user.email,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeout);
+
+      const text = await res.text();
+      let data: any = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error('Invalid server response');
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Check-in failed');
+      }
+
+      toast.success('Check-in successful');
+      router.push('/teacher/dashboard');
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        toast.error('Request timed out');
+      } else {
+        toast.error(err.message || 'Something went wrong');
+      }
+    } finally {
+      toast.dismiss(toastId);
     }
-  } finally {
-    toast.dismiss(toastId);
   }
-}
-
-function getLatitude(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos.coords.latitude),
-      () => reject(new Error('Location permission denied'))
-    );
-  });
-}
-
-function getLongitude(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos.coords.longitude),
-      () => reject(new Error('Location permission denied'))
-    );
-  });
-}
-
-
 
   /* =========================
      UI
