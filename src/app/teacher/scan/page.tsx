@@ -68,57 +68,61 @@ export default function TeacherScanPage() {
      HANDLE QR RESULT
   ========================= */
   async function handleScan(token: string) {
-    await stopScan();
-    toast.loading('Validating QR...');
+  await stopScan();
+  toast.loading('Validating QR...');
 
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth?.user?.email) {
-      toast.dismiss();
-      toast.error('Not authenticated');
-      return;
-    }
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/teacher-checkin`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-              },
-              body: JSON.stringify({
-                token,
-                email: auth.user.email,
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-              }),
-            }
-          );
-
-          const result = await res.json();
-          toast.dismiss();
-
-          if (!res.ok) {
-            toast.error(result.error || 'Check-in failed');
-            return;
-          }
-
-          toast.success('Check-in successful');
-          router.push('/teacher/dashboard');
-        } catch {
-          toast.dismiss();
-          toast.error('Network error');
-        }
-      },
-      () => {
-        toast.dismiss();
-        toast.error('Location permission denied');
-      }
-    );
+  if (!session || !session.user?.email) {
+    toast.dismiss();
+    toast.error('Not authenticated. Please login again.');
+    return;
   }
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/teacher-checkin`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              token,
+              email: session.user.email,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            }),
+          }
+        );
+
+        const result = await res.json();
+        toast.dismiss();
+
+        if (!res.ok) {
+          toast.error(result.error || 'Check-in failed');
+          return;
+        }
+
+        toast.success('Check-in successful');
+        router.push('/teacher/dashboard');
+      } catch {
+        toast.dismiss();
+        toast.error('Network error');
+      }
+    },
+    () => {
+      toast.dismiss();
+      toast.error('Location permission denied');
+    }
+  );
+}
+
 
   /* =========================
      UI
