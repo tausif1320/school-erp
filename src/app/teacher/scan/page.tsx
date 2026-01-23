@@ -10,45 +10,28 @@ export default function TeacherScanPage() {
   const router = useRouter();
   const qrRef = useRef<Html5Qrcode | null>(null);
 
-  const [ready, setReady] = useState(false);
   const [scanning, setScanning] = useState(false);
 
   /* =========================
-     REQUEST PERMISSIONS
+     START SCAN
   ========================= */
-  async function requestPermissions() {
+  async function startScan() {
+    if (scanning) return;
+
     try {
-      // 1️⃣ Ask location FIRST
+      // 1️⃣ Ask location permission FIRST
       await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
           timeout: 10000,
         });
       });
-
-      // 2️⃣ Ask camera
-      const tempQr = new Html5Qrcode('temp-camera-check');
-      await tempQr.start(
-        { facingMode: 'environment' },
-        { fps: 1 },
-        () => {},
-        () => {}
-      );
-      await tempQr.stop();
-      await tempQr.clear();
-
-      setReady(true);
     } catch {
-      toast.error('Camera and location permissions are required');
+      toast.error('Location permission is required');
+      return;
     }
-  }
 
-  /* =========================
-     START QR SCAN
-  ========================= */
-  async function startScan() {
-    if (scanning || !ready) return;
-
+    // 2️⃣ Start camera + QR scanner
     const qr = new Html5Qrcode('qr-reader');
     qrRef.current = qr;
     setScanning(true);
@@ -62,8 +45,8 @@ export default function TeacherScanPage() {
         },
         () => {}
       );
-    } catch {
-      toast.error('Failed to start camera');
+    } catch (err) {
+      toast.error('Camera permission is required');
       setScanning(false);
     }
   }
@@ -99,6 +82,7 @@ export default function TeacherScanPage() {
         throw new Error('Session expired. Please login again.');
       }
 
+      // get location AGAIN for payload (safe + fast)
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject);
       });
@@ -120,8 +104,7 @@ export default function TeacherScanPage() {
         }
       );
 
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : {};
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error || 'Check-in failed');
@@ -143,16 +126,7 @@ export default function TeacherScanPage() {
     <div className="flex flex-col items-center gap-4">
       <h1 className="text-xl">Teacher Attendance</h1>
 
-      {!ready && (
-        <button
-          onClick={requestPermissions}
-          className="px-4 py-2 bg-blue-600 rounded"
-        >
-          Allow Camera & Location
-        </button>
-      )}
-
-      {ready && !scanning && (
+      {!scanning && (
         <button
           onClick={startScan}
           className="px-4 py-2 bg-green-600 rounded"
@@ -162,7 +136,6 @@ export default function TeacherScanPage() {
       )}
 
       <div id="qr-reader" className="w-72 h-72 bg-black rounded-xl" />
-      <div id="temp-camera-check" className="hidden" />
     </div>
   );
 }
