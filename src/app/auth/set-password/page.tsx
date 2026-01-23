@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -14,7 +14,7 @@ export default function SetPasswordPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
         toast.error('Invalid or expired invite link');
-        router.push('/auth/login');
+        router.replace('/auth/login');
       }
     });
   }, []);
@@ -37,7 +37,7 @@ export default function SetPasswordPage() {
     }
 
     toast.success('Password set successfully');
-    router.push('/teacher/dashboard');
+    router.replace('/teacher/dashboard');
   }
 
   return (
@@ -47,8 +47,8 @@ export default function SetPasswordPage() {
 
         <input
           type="password"
-          placeholder="New password"
           className="w-full p-2 bg-zinc-800 rounded mb-4"
+          placeholder="New password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
