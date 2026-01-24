@@ -1,97 +1,85 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
-import { nowIST, todayIST } from '@/lib/time';
 import toast from 'react-hot-toast';
+
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(Δφ / 2) ** 2 +
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) ** 2;
+
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function TeacherScanPage() {
   const router = useRouter();
-  const qrRef = useRef<Html5Qrcode | null>(null);
 
-  const [cameraId, setCameraId] = useState('');
-  const [cameras, setCameras] = useState<any[]>([]);
-  const [scanning, setScanning] = useState(false);
-
-  /* =========================
-     LOAD CAMERAS
-  ========================= */
   useEffect(() => {
-    Html5Qrcode.getCameras().then((devices) => {
-      setCameras(devices);
-      if (devices.length > 0) {
-        setCameraId(devices[devices.length - 1].id); // back camera
-      }
-    });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => startScanner(pos.coords.latitude, pos.coords.longitude),
+      () => toast.error('Location permission required')
+    );
   }, []);
 
-  /* =========================
-     START SCAN
-  ========================= */
-  async function startScan() {
-    if (!cameraId) {
-      toast.error('Camera not available');
-      return;
-    }
+  function startScanner(userLat: number, userLng: number) {
+    const scanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: 250 }, false);
 
-    qrRef.current = new Html5Qrcode('qr-reader');
-    setScanning(true);
-
-    await qrRef.current.start(
-      cameraId,
-      { fps: 10, qrbox: 260 },
-      async (decodedText) => {
-        await stopScan();
-        await handleScan(decodedText.trim());
-      },
-      () => {}
-    );
+    scanner.render(async (text) => {
+      scanner.clear();
+      await handleScan(text, userLat, userLng);
+    },
+  () => {
+    
+  });
   }
 
-  async function stopScan() {
-    if (qrRef.current) {
-      await qrRef.current.stop().catch(() => {});
-      qrRef.current.clear();
-      qrRef.current = null;
-    }
-    setScanning(false);
-  }
-
-  /* =========================
-     HANDLE SCAN
-  ========================= */
-  async function handleScan(token: string) {
+  async function handleScan(text: string, userLat: number, userLng: number) {
     try {
-      // 1️⃣ Validate QR
-      const { data: qr } = await supabase
-        .from('qr_sessions')
-        .select('expires_at')
-        .eq('token', token)
-        .single();
-
-      if (!qr) {
+      const parts = text.split('|');
+      if (parts.length !== 6) {
         toast.error('Invalid QR');
         return;
       }
 
-      if (new Date(qr.expires_at) < new Date()) {
-        toast.error('QR expired');
+      const [, date, lat, lng, radius, signature] = parts;
+      const today = new Date().toISOString().slice(0, 10);
+      const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
+
+      const expected = btoa(`${date}|${lat}|${lng}|${radius}|${secret}`);
+
+      if (date !== today || signature !== expected) {
+        toast.error('QR expired or invalid');
         return;
       }
 
-      // 2️⃣ Get logged-in user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const distance = getDistance(
+        userLat,
+        userLng,
+        Number(lat),
+        Number(lng)
+      );
 
+      if (distance > Number(radius)) {
+        toast.error('You are outside school premises');
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Not logged in');
         return;
       }
 
-      // 3️⃣ Find teacher
       const { data: teacher } = await supabase
         .from('teachers')
         .select('id')
@@ -99,97 +87,43 @@ export default function TeacherScanPage() {
         .single();
 
       if (!teacher) {
-        toast.error('Teacher profile not found');
+        toast.error('Teacher not found');
         return;
       }
 
-      const today = todayIST();
+      const todayDate = today;
 
-      // 4️⃣ Check existing attendance
       const { data: existing } = await supabase
         .from('teacher_attendance')
-        .select('check_in, check_out')
+        .select('id')
         .eq('teacher_id', teacher.id)
-        .eq('date', today)
+        .eq('date', todayDate)
         .maybeSingle();
 
-      // ❌ Already checked in and not checked out
-      if (existing?.check_in && !existing.check_out) {
+      if (existing) {
         toast.error('Already checked in');
         return;
       }
 
-      // 5️⃣ Check-in
-      if (!existing) {
-        await supabase.from('teacher_attendance').insert({
-          teacher_id: teacher.id,
-          date: today,
-          check_in: nowIST(),
-          status: 'present',
-        });
+      await supabase.from('teacher_attendance').insert({
+        teacher_id: teacher.id,
+        date: todayDate,
+        check_in: new Date().toISOString(),
+        status: 'present',
+      });
 
-        toast.success('Check-in successful');
-        router.push('/teacher/dashboard');
-        return;
-      }
-
-      // 6️⃣ Check-out
-      if (existing.check_in && !existing.check_out) {
-        await supabase
-          .from('teacher_attendance')
-          .update({ check_out: nowIST() })
-          .eq('teacher_id', teacher.id)
-          .eq('date', today);
-
-        toast.success('Check-out successful');
-        router.push('/teacher/dashboard');
-        return;
-      }
+      toast.success('Attendance marked');
+      router.push('/teacher/dashboard');
     } catch (err) {
       console.error(err);
       toast.error('Scan failed');
     }
   }
 
-  /* =========================
-     UI
-  ========================= */
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-      <h1 className="text-xl font-semibold">Scan Attendance QR</h1>
-
-      <select
-        className="bg-zinc-800 p-2 rounded w-72"
-        value={cameraId}
-        onChange={(e) => setCameraId(e.target.value)}
-      >
-        {cameras.map((cam) => (
-          <option key={cam.id} value={cam.id}>
-            {cam.label || 'Camera'}
-          </option>
-        ))}
-      </select>
-
-      <div
-        id="qr-reader"
-        className="w-72 h-72 bg-black rounded-xl border border-zinc-700"
-      />
-
-      {!scanning ? (
-        <button
-          onClick={startScan}
-          className="px-6 py-2 bg-green-600 rounded"
-        >
-          Start Scan
-        </button>
-      ) : (
-        <button
-          onClick={stopScan}
-          className="px-6 py-2 bg-red-600 rounded"
-        >
-          Stop Scan
-        </button>
-      )}
+    <div className="min-h-screen flex flex-col items-center justify-center">
+      <h1 className="text-xl mb-4">Scan Attendance QR</h1>
+      <div id="qr-reader" className="w-72" />
     </div>
   );
 }
