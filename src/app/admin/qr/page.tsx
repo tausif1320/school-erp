@@ -3,13 +3,18 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'react-qr-code';
 import { supabase } from '@/lib/supabase';
+import toast from 'react-hot-toast';
+
+type QRSettings = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  radius: number;
+};
 
 export default function AdminQRPage() {
-  const [settings, setSettings] = useState<{
-    latitude: number;
-    longitude: number;
-    radius: number;
-  } | null>(null);
+  const [settings, setSettings] = useState<QRSettings | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
     latitude: '',
@@ -22,9 +27,12 @@ export default function AdminQRPage() {
   }, []);
 
   async function loadSettings() {
-    const { data } = await supabase
+    setLoading(true);
+
+    const { data, error } = await supabase
       .from('qr_settings')
-      .select('latitude, longitude, radius')
+      .select('*')
+      .limit(1)
       .single();
 
     if (data) {
@@ -35,34 +43,64 @@ export default function AdminQRPage() {
         radius: String(data.radius),
       });
     }
+
+    setLoading(false);
   }
 
   async function saveSettings() {
-    const payload = {
-      latitude: Number(form.latitude),
-      longitude: Number(form.longitude),
-      radius: Number(form.radius),
-      updated_at: new Date().toISOString(),
-    };
+    const lat = Number(form.latitude);
+    const lng = Number(form.longitude);
+    const rad = Number(form.radius);
 
-    await supabase.from('qr_settings').upsert(payload);
+    if (!lat || !lng || !rad) {
+      toast.error('Fill all fields');
+      return;
+    }
+
+    if (settings) {
+      // UPDATE existing row
+      await supabase
+        .from('qr_settings')
+        .update({
+          latitude: lat,
+          longitude: lng,
+          radius: rad,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', settings.id);
+    } else {
+      // INSERT first row
+      await supabase.from('qr_settings').insert({
+        latitude: lat,
+        longitude: lng,
+        radius: rad,
+      });
+    }
+
+    toast.success('QR location saved');
     loadSettings();
   }
 
   function useCurrentLocation() {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      setForm({
-        ...form,
-        latitude: String(pos.coords.latitude),
-        longitude: String(pos.coords.longitude),
-      });
-    });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm({
+          latitude: String(pos.coords.latitude),
+          longitude: String(pos.coords.longitude),
+          radius: form.radius || '150',
+        });
+      },
+      () => toast.error('Location permission denied'),
+      { enableHighAccuracy: true }
+    );
   }
 
-  if (!settings) return <p>Loading QR settings...</p>;
+  if (loading) return <p>Loading QR settings…</p>;
+  if (!settings) return <p>No QR settings found</p>;
 
   const today = new Date().toISOString().slice(0, 10);
   const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
+
   const signature = btoa(
     `${today}|${settings.latitude}|${settings.longitude}|${settings.radius}|${secret}`
   );
@@ -73,7 +111,7 @@ export default function AdminQRPage() {
     <div className="max-w-xl mx-auto">
       <h1 className="text-2xl mb-4">Daily Attendance QR</h1>
 
-      <div className="bg-zinc-900 p-4 rounded-xl mb-6 space-y-2">
+      <div className="bg-zinc-900 p-4 rounded-xl space-y-2 mb-6">
         <input
           className="p-2 bg-zinc-800 rounded w-full"
           placeholder="Latitude"
@@ -94,10 +132,16 @@ export default function AdminQRPage() {
         />
 
         <div className="flex gap-2">
-          <button onClick={useCurrentLocation} className="bg-blue-600 px-3 py-2 rounded">
+          <button
+            onClick={useCurrentLocation}
+            className="bg-blue-600 px-3 py-2 rounded"
+          >
             Use Current Location
           </button>
-          <button onClick={saveSettings} className="bg-green-600 px-3 py-2 rounded">
+          <button
+            onClick={saveSettings}
+            className="bg-green-600 px-3 py-2 rounded"
+          >
             Save
           </button>
         </div>
