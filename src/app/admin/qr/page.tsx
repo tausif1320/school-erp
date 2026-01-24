@@ -1,94 +1,48 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import QRCode from 'react-qr-code';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 
-type QRSession = {
-  token: string;
-  expires_at: string;
-};
-
 export default function QRManagementPage() {
-  const [session, setSession] = useState<QRSession | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [payload, setPayload] = useState<string>('');
 
-  /* =========================
-     LOAD LATEST QR
-  ========================= */
-  async function loadQRSession() {
-    const { data } = await supabase
-      .from('qr_sessions')
-      .select('token, expires_at')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  // regenerate QR every 30 seconds
+  useEffect(() => {
+    generateQR();
+    const interval = setInterval(generateQR, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
-    setSession(data ?? null);
+  function generateQR() {
+    const data = {
+      type: 'teacher_attendance',
+      issuedAt: Date.now(),
+    };
+    setPayload(JSON.stringify(data));
   }
 
-  /* =========================
-     GENERATE QR (TOKEN ONLY)
-  ========================= */
-  async function generateQR() {
-  setLoading(true);
-
-  // 1️⃣ Delete ALL previous QR sessions
-  await supabase.from('qr_sessions').delete().neq('token', '');
-
-  // 2️⃣ Create fresh QR
-  const token = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min
-
-  const { error } = await supabase.from('qr_sessions').insert({
-    token,
-    expires_at: expiresAt,
-  });
-
-  if (error) {
-    toast.error('Failed to generate QR');
-    setLoading(false);
-    return;
-  }
-
-  toast.success('QR generated');
-  await loadQRSession();
-  setLoading(false);
-}
-
-
-  /* =========================
-     UI
-  ========================= */
   return (
     <div>
       <h1 className="text-2xl mb-6">QR Management</h1>
 
       <div className="bg-zinc-900 p-6 rounded-xl flex flex-col items-center gap-4">
-        {session ? (
-          <>
-            <div className="bg-white p-4 rounded-lg">
-              <QRCode value={session.token} size={220} />
-            </div>
+        <div className="bg-white p-4 rounded-lg">
+          <QRCode size={220} value={payload} />
+        </div>
 
-            <p className="text-sm text-zinc-400">
-              Expires at{' '}
-              <span className="text-zinc-200">
-                {new Date(session.expires_at).toLocaleTimeString()}
-              </span>
-            </p>
-          </>
-        ) : (
-          <p className="text-zinc-400">No active QR</p>
-        )}
+        <p className="text-sm text-zinc-400">
+          QR auto-refreshes every 30 seconds
+        </p>
 
         <button
-          onClick={generateQR}
-          disabled={loading}
+          onClick={() => {
+            generateQR();
+            toast.success('QR refreshed');
+          }}
           className="bg-blue-600 px-4 py-2 rounded"
         >
-          {loading ? 'Generating…' : 'Generate New QR'}
+          Refresh QR
         </button>
       </div>
     </div>
