@@ -88,11 +88,11 @@ export default function TeacherScanPage() {
       const { data: qr } = await supabase
         .from('qr_sessions')
         .select('token, expires_at')
-        .eq('token', token)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
-      if (!qr) {
-        toast.error('Invalid QR', { id: 'qr' });
+      if (!qr || qr.token !== token) {
+        toast.error('Invalid QR');
         return;
       }
 

@@ -32,30 +32,31 @@ export default function QRManagementPage() {
      GENERATE QR (TOKEN ONLY)
   ========================= */
   async function generateQR() {
-    setLoading(true);
+  setLoading(true);
 
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 60 * 1000).toISOString();
+  // 1️⃣ Delete ALL previous QR sessions
+  await supabase.from('qr_sessions').delete().neq('token', '');
 
-    const { error } = await supabase.from('qr_sessions').insert({
-      token,
-      expires_at: expiresAt,
-    });
+  // 2️⃣ Create fresh QR
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min
 
-    if (error) {
-      toast.error('Failed to generate QR');
-      setLoading(false);
-      return;
-    }
+  const { error } = await supabase.from('qr_sessions').insert({
+    token,
+    expires_at: expiresAt,
+  });
 
-    toast.success('New QR generated');
-    await loadQRSession();
+  if (error) {
+    toast.error('Failed to generate QR');
     setLoading(false);
+    return;
   }
 
-  useEffect(() => {
-    loadQRSession();
-  }, []);
+  toast.success('QR generated');
+  await loadQRSession();
+  setLoading(false);
+}
+
 
   /* =========================
      UI
