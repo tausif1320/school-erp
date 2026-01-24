@@ -1,47 +1,79 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 export default function TeacherScanPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const qrRef = useRef<Html5Qrcode | null>(null);
 
+  const [cameraId, setCameraId] = useState('');
+  const [cameras, setCameras] = useState<any[]>([]);
+  const [scanning, setScanning] = useState(false);
+
+  /* =========================
+     LOAD CAMERAS
+  ========================= */
   useEffect(() => {
-    const scanner = new Html5QrcodeScanner(
-      'qr-reader',
-      { fps: 10, qrbox: 250 },
-      false
-    );
-
-    scanner.render(
-      async (decodedText) => {
-        scanner.clear();
-        await handleScan(decodedText);
-      },
-      () => {}
-    );
-
-    return () => {
-      scanner.clear().catch(() => {});
-    };
+    Html5Qrcode.getCameras().then((devices) => {
+      setCameras(devices);
+      if (devices.length > 0) {
+        setCameraId(devices[devices.length - 1].id); // back camera
+      }
+    });
   }, []);
 
+  /* =========================
+     START SCAN
+  ========================= */
+  async function startScan() {
+    if (!cameraId) {
+      toast.error('Camera not available');
+      return;
+    }
+
+    qrRef.current = new Html5Qrcode('qr-reader');
+    setScanning(true);
+
+    await qrRef.current.start(
+  cameraId,
+  { fps: 10, qrbox: 260 },
+  async (decodedText) => {
+    await stopScan();
+    await handleScan(decodedText.trim());
+  },
+  (errorMessage) => {
+    // Ignore scan errors (camera noise, partial scans)
+    // Do NOT toast here or UX will be awful
+  }
+);
+
+
+  async function stopScan() {
+    if (qrRef.current) {
+      await qrRef.current.stop().catch(() => {});
+      qrRef.current.clear();
+      qrRef.current = null;
+    }
+    setScanning(false);
+  }
+
+  /* =========================
+     HANDLE SCAN
+  ========================= */
   async function handleScan(token: string) {
     try {
-      setLoading(true);
-
       // 1️⃣ Validate QR
-      const { data: qr, error: qrError } = await supabase
+      const { data: qr } = await supabase
         .from('qr_sessions')
         .select('*')
         .eq('token', token)
         .single();
 
-      if (qrError || !qr) {
+      if (!qr) {
         toast.error('Invalid QR');
         return;
       }
@@ -51,16 +83,17 @@ export default function TeacherScanPage() {
         return;
       }
 
-      // 2️⃣ Get logged-in teacher
+      // 2️⃣ Auth user
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!user) {
-        toast.error('Not authenticated');
+        toast.error('Not logged in');
         return;
       }
 
+      // 3️⃣ Find teacher
       const { data: teacher } = await supabase
         .from('teachers')
         .select('id')
@@ -74,21 +107,21 @@ export default function TeacherScanPage() {
 
       const today = new Date().toISOString().slice(0, 10);
 
-      // 3️⃣ Check existing attendance
+      // 4️⃣ Prevent duplicate check-in
       const { data: existing } = await supabase
         .from('teacher_attendance')
-        .select('*')
+        .select('id')
         .eq('teacher_id', teacher.id)
         .eq('date', today)
         .maybeSingle();
 
-      if (existing?.check_in) {
+      if (existing) {
         toast.error('Already checked in');
         return;
       }
 
-      // 4️⃣ Insert attendance
-      await supabase.from('teacher_attendance').upsert({
+      // 5️⃣ Insert attendance
+      await supabase.from('teacher_attendance').insert({
         teacher_id: teacher.id,
         date: today,
         check_in: new Date().toISOString(),
@@ -99,19 +132,49 @@ export default function TeacherScanPage() {
       router.push('/teacher/dashboard');
     } catch (err) {
       console.error(err);
-      toast.error('Check-in failed');
-    } finally {
-      setLoading(false);
+      toast.error('Scan failed');
     }
   }
 
+  /* =========================
+     UI
+  ========================= */
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center">
-      <h1 className="text-xl mb-4">Scan QR</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+      <h1 className="text-xl font-semibold">Scan Attendance QR</h1>
 
-      {loading && <p className="text-zinc-400">Validating QR…</p>}
+      <select
+        className="bg-zinc-800 p-2 rounded w-72"
+        value={cameraId}
+        onChange={(e) => setCameraId(e.target.value)}
+      >
+        {cameras.map((cam) => (
+          <option key={cam.id} value={cam.id}>
+            {cam.label || 'Camera'}
+          </option>
+        ))}
+      </select>
 
-      <div id="qr-reader" className="w-72" />
+      <div
+        id="qr-reader"
+        className="w-72 h-72 bg-black rounded-xl border border-zinc-700"
+      />
+
+      {!scanning ? (
+        <button
+          onClick={startScan}
+          className="px-6 py-2 bg-green-600 rounded"
+        >
+          Start Scan
+        </button>
+      ) : (
+        <button
+          onClick={stopScan}
+          className="px-6 py-2 bg-red-600 rounded"
+        >
+          Stop Scan
+        </button>
+      )}
     </div>
   );
-}
+}}
