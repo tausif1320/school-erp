@@ -29,7 +29,7 @@ export default function AdminQRPage() {
   async function loadSettings() {
     setLoading(true);
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('qr_settings')
       .select('*')
       .limit(1)
@@ -52,13 +52,12 @@ export default function AdminQRPage() {
     const lng = Number(form.longitude);
     const rad = Number(form.radius);
 
-    if (!lat || !lng || !rad) {
-      toast.error('Fill all fields');
+    if (Number.isNaN(lat) || Number.isNaN(lng) || Number.isNaN(rad)) {
+      toast.error('Invalid coordinates');
       return;
     }
 
     if (settings) {
-      // UPDATE existing row
       await supabase
         .from('qr_settings')
         .update({
@@ -69,7 +68,6 @@ export default function AdminQRPage() {
         })
         .eq('id', settings.id);
     } else {
-      // INSERT first row
       await supabase.from('qr_settings').insert({
         latitude: lat,
         longitude: lng,
@@ -78,16 +76,16 @@ export default function AdminQRPage() {
     }
 
     toast.success('QR location saved');
-    loadSettings();
+    await loadSettings(); // 🔥 FORCE reload
   }
 
   function useCurrentLocation() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setForm({
-          latitude: String(pos.coords.latitude),
-          longitude: String(pos.coords.longitude),
-          radius: form.radius || '150',
+          latitude: pos.coords.latitude.toFixed(6),
+          longitude: pos.coords.longitude.toFixed(6),
+          radius: form.radius || '300',
         });
       },
       () => toast.error('Location permission denied'),
@@ -101,11 +99,13 @@ export default function AdminQRPage() {
   const today = new Date().toISOString().slice(0, 10);
   const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
 
-  const signature = btoa(
-    `${today}|${settings.latitude}|${settings.longitude}|${settings.radius}|${secret}`
-  );
+  // 🔒 USE SETTINGS FROM DB, NOT FORM
+  const lat = settings.latitude;
+  const lng = settings.longitude;
+  const radius = settings.radius;
 
-  const qrValue = `SCHOOL_CHECKIN|${today}|${settings.latitude}|${settings.longitude}|${settings.radius}|${signature}`;
+  const signature = btoa(`${today}|${lat}|${lng}|${radius}|${secret}`);
+  const qrValue = `SCHOOL_CHECKIN|${today}|${lat}|${lng}|${radius}|${signature}`;
 
   return (
     <div className="max-w-xl mx-auto">
@@ -132,19 +132,21 @@ export default function AdminQRPage() {
         />
 
         <div className="flex gap-2">
-          <button
-            onClick={useCurrentLocation}
-            className="bg-blue-600 px-3 py-2 rounded"
-          >
+          <button onClick={useCurrentLocation} className="bg-blue-600 px-3 py-2 rounded">
             Use Current Location
           </button>
-          <button
-            onClick={saveSettings}
-            className="bg-green-600 px-3 py-2 rounded"
-          >
+          <button onClick={saveSettings} className="bg-green-600 px-3 py-2 rounded">
             Save
           </button>
         </div>
+      </div>
+
+      {/* 🔍 VISUAL DEBUG (IMPORTANT) */}
+      <div className="bg-zinc-900 p-3 rounded mb-4 text-sm">
+        <p>QR Latitude: {lat}</p>
+        <p>QR Longitude: {lng}</p>
+        <p>Radius: {radius} m</p>
+        <p>Date: {today}</p>
       </div>
 
       <div className="bg-white p-4 rounded-xl flex justify-center">
@@ -152,7 +154,7 @@ export default function AdminQRPage() {
       </div>
 
       <p className="text-center text-zinc-400 mt-2">
-        Valid only for today ({today})
+        Valid only for today
       </p>
     </div>
   );
