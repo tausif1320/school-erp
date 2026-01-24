@@ -6,108 +6,100 @@ import toast from 'react-hot-toast';
 
 type Attendance = {
   id: string;
-  date: string;
   check_in: string | null;
   check_out: string | null;
 };
 
 export default function TeacherDashboard() {
-  const [today, setToday] = useState<Attendance | null>(null);
-  const [history, setHistory] = useState<Attendance[]>([]);
+  const [attendance, setAttendance] = useState<Attendance | null>(null);
 
   useEffect(() => {
-    loadData();
+    loadTodayAttendance();
   }, []);
 
-  async function loadData() {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return;
+  async function loadTodayAttendance() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
 
     const { data: teacher } = await supabase
       .from('teachers')
       .select('id')
-      .eq('user_id', auth.user.id)
+      .eq('user_id', user.id)
       .single();
 
-    if (!teacher) {
-      toast.error('Teacher profile not found');
-      return;
-    }
+    if (!teacher) return;
 
-    const todayDate = new Date().toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
 
-    const { data: todayRow } = await supabase
+    const { data } = await supabase
       .from('teacher_attendance')
       .select('*')
       .eq('teacher_id', teacher.id)
-      .eq('date', todayDate)
+      .eq('date', today)
       .maybeSingle();
 
-    setToday(todayRow ?? null);
-
-    const { data: rows } = await supabase
-      .from('teacher_attendance')
-      .select('*')
-      .eq('teacher_id', teacher.id)
-      .order('date', { ascending: false });
-
-    setHistory(rows ?? []);
+    setAttendance(data ?? null);
   }
 
   async function checkout() {
-    if (!today) return;
+    if (!attendance) return;
 
-    const { error } = await supabase
+    await supabase
       .from('teacher_attendance')
-      .update({ check_out: new Date().toISOString() })
-      .eq('id', today.id);
+      .update({
+        check_out: new Date().toISOString(),
+      })
+      .eq('id', attendance.id);
 
-    if (error) {
-      toast.error('Failed to check out');
-      return;
-    }
-
-    toast.success('Checked out');
-    loadData();
+    toast.success('Checked out successfully');
+    loadTodayAttendance();
   }
 
   return (
-    <div>
+    <div className="max-w-xl mx-auto">
       <h1 className="text-2xl mb-4">Teacher Dashboard</h1>
 
-      <div className="bg-zinc-900 p-4 rounded-xl mb-6">
-        <p className="mb-1">Today</p>
-        <p>Check-in: {today?.check_in ?? '-'}</p>
-        <p>Check-out: {today?.check_out ?? '-'}</p>
+      {!attendance && (
+        <p className="text-zinc-400">
+          Not checked in yet. Scan QR to check in.
+        </p>
+      )}
 
-        {today?.check_in && !today?.check_out && (
-          <button
-            onClick={checkout}
-            className="mt-3 bg-red-600 px-4 py-2 rounded"
-          >
-            Check Out
-          </button>
-        )}
-      </div>
+      {attendance && (
+        <div className="bg-zinc-900 p-4 rounded-xl space-y-3">
+          <p>
+            <strong>Check-in:</strong>{' '}
+            {attendance.check_in
+              ? new Date(attendance.check_in).toLocaleTimeString()
+              : '-'}
+          </p>
 
-      <table className="w-full bg-zinc-900 rounded-xl text-sm">
-        <thead className="bg-zinc-800">
-          <tr>
-            <th className="p-2">Date</th>
-            <th>Check In</th>
-            <th>Check Out</th>
-          </tr>
-        </thead>
-        <tbody>
-          {history.map((r) => (
-            <tr key={r.id}>
-              <td className="p-2">{r.date}</td>
-              <td>{r.check_in ?? '-'}</td>
-              <td>{r.check_out ?? '-'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          <p>
+            <strong>Check-out:</strong>{' '}
+            {attendance.check_out
+              ? new Date(attendance.check_out).toLocaleTimeString()
+              : '-'}
+          </p>
+
+          {!attendance.check_out && (
+            <button
+              onClick={checkout}
+              className="bg-red-600 px-4 py-2 rounded"
+            >
+              Check Out
+            </button>
+          )}
+
+          {attendance.check_out && (
+            <p className="text-green-500">
+              Attendance completed for today
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

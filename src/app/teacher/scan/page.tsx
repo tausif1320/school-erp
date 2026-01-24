@@ -6,9 +6,18 @@ import { Html5QrcodeScanner } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+/* =========================
+   DISTANCE UTILITY
+========================= */
+function getDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) {
   const R = 6371000;
   const toRad = (v: number) => (v * Math.PI) / 180;
+
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
 
@@ -24,8 +33,11 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 export default function TeacherScanPage() {
   const router = useRouter();
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
-  const [debug, setDebug] = useState<string>('');
+  const [scannerStarted, setScannerStarted] = useState(false);
 
+  /* =========================
+     GET GPS FIRST
+  ========================= */
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -39,8 +51,11 @@ export default function TeacherScanPage() {
     );
   }, []);
 
+  /* =========================
+     START QR SCANNER
+  ========================= */
   useEffect(() => {
-    if (!gps) return;
+    if (!gps || scannerStarted) return;
 
     const scanner = new Html5QrcodeScanner(
       'qr-reader',
@@ -55,47 +70,128 @@ export default function TeacherScanPage() {
       },
       () => {}
     );
+
+    setScannerStarted(true);
   }, [gps]);
 
-  async function handleScan(text: string, userLat: number, userLng: number) {
-    const parts = text.split('|');
-    const [, , latStr, lngStr, radiusStr] = parts;
+  /* =========================
+     HANDLE QR SCAN
+  ========================= */
+  async function handleScan(
+    qrText: string,
+    userLat: number,
+    userLng: number
+  ) {
+    try {
+      const parts = qrText.split('|');
+      if (parts.length !== 6) {
+        toast.error('Invalid QR');
+        return;
+      }
 
-    let qrLat = Number(latStr);
-    let qrLng = Number(lngStr);
+      const [, date, latStr, lngStr, radiusStr, signature] = parts;
 
-    if (Math.abs(qrLat) > 90) {
-      [qrLat, qrLng] = [qrLng, qrLat];
+      const today = new Date().toISOString().slice(0, 10);
+      const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
+
+      const expected = btoa(
+        `${date}|${latStr}|${lngStr}|${radiusStr}|${secret}`
+      );
+
+      if (date !== today || signature !== expected) {
+        toast.error('QR expired or invalid');
+        return;
+      }
+
+      let qrLat = Number(latStr);
+      let qrLng = Number(lngStr);
+
+      // safety for swapped coords
+      if (Math.abs(qrLat) > 90) {
+        [qrLat, qrLng] = [qrLng, qrLat];
+      }
+
+      const distance = getDistance(userLat, userLng, qrLat, qrLng);
+      const radius = Number(radiusStr);
+
+      if (distance > radius) {
+        toast.error(`Outside school premises (${Math.round(distance)}m)`);
+        return;
+      }
+
+      /* =========================
+         AUTH + TEACHER
+      ========================= */
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error('Not logged in');
+        return;
+      }
+
+      const { data: teacher } = await supabase
+        .from('teachers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!teacher) {
+        toast.error('Teacher not found');
+        return;
+      }
+
+      const todayDate = today;
+
+      const { data: existing } = await supabase
+        .from('teacher_attendance')
+        .select('*')
+        .eq('teacher_id', teacher.id)
+        .eq('date', todayDate)
+        .maybeSingle();
+
+      if (!existing) {
+        // FIRST SCAN → CHECK-IN
+        await supabase.from('teacher_attendance').insert({
+          teacher_id: teacher.id,
+          date: todayDate,
+          check_in: new Date().toISOString(),
+          status: 'present',
+        });
+
+        toast.success('Checked in successfully');
+        router.push('/teacher/dashboard');
+        return;
+      }
+
+      if (existing.check_in && !existing.check_out) {
+        toast.success('Already checked in. Use dashboard to check out.');
+        router.push('/teacher/dashboard');
+        return;
+      }
+
+      toast.error('Attendance already completed for today');
+    } catch (err) {
+      console.error(err);
+      toast.error('Scan failed');
     }
-
-    const distance = getDistance(userLat, userLng, qrLat, qrLng);
-
-    setDebug(
-      `Phone: ${userLat.toFixed(6)}, ${userLng.toFixed(6)}
-QR: ${qrLat.toFixed(6)}, ${qrLng.toFixed(6)}
-Distance: ${Math.round(distance)} m`
-    );
-
-    if (distance > Number(radiusStr)) {
-      toast.error(`Outside premises (${Math.round(distance)}m)`);
-      return;
-    }
-
-    toast.success('GPS OK (rest of logic continues)');
-    // Attendance logic remains same
   }
 
+  /* =========================
+     UI
+  ========================= */
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">
-      <h1 className="text-xl mb-2">Scan Attendance QR</h1>
-      {!gps && <p>Waiting for location permission…</p>}
-      <div id="qr-reader" className="w-72 mt-4" />
+      <h1 className="text-xl mb-3">Scan Attendance QR</h1>
 
-      {debug && (
-        <pre className="mt-4 text-xs bg-zinc-900 p-3 rounded w-80">
-          {debug}
-        </pre>
+      {!gps && (
+        <p className="text-zinc-400">
+          Waiting for location permission…
+        </p>
       )}
+
+      <div id="qr-reader" className="w-72 mt-4" />
     </div>
   );
 }
