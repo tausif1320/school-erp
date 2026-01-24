@@ -7,14 +7,19 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 /* =========================
+   IST DATE (SINGLE SOURCE)
+========================= */
+function getISTDate() {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(now.getTime() + istOffset);
+  return ist.toISOString().slice(0, 10);
+}
+
+/* =========================
    DISTANCE UTILITY
 ========================= */
-function getDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-) {
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371000;
   const toRad = (v: number) => (v * Math.PI) / 180;
 
@@ -52,7 +57,7 @@ export default function TeacherScanPage() {
   }, []);
 
   /* =========================
-     START QR SCANNER
+     START SCANNER
   ========================= */
   useEffect(() => {
     if (!gps || scannerStarted) return;
@@ -75,7 +80,7 @@ export default function TeacherScanPage() {
   }, [gps]);
 
   /* =========================
-     HANDLE QR SCAN
+     HANDLE SCAN
   ========================= */
   async function handleScan(
     qrText: string,
@@ -90,15 +95,14 @@ export default function TeacherScanPage() {
       }
 
       const [, date, latStr, lngStr, radiusStr, signature] = parts;
-
-      const today = new Date().toISOString().slice(0, 10);
+      const todayIST = getISTDate();
       const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
 
       const expected = btoa(
         `${date}|${latStr}|${lngStr}|${radiusStr}|${secret}`
       );
 
-      if (date !== today || signature !== expected) {
+      if (date !== todayIST || signature !== expected) {
         toast.error('QR expired or invalid');
         return;
       }
@@ -142,7 +146,10 @@ export default function TeacherScanPage() {
         return;
       }
 
-      const todayDate = today;
+      /* =========================
+         ATTENDANCE (IST DATE)
+      ========================= */
+      const todayDate = todayIST;
 
       const { data: existing } = await supabase
         .from('teacher_attendance')
@@ -152,11 +159,10 @@ export default function TeacherScanPage() {
         .maybeSingle();
 
       if (!existing) {
-        // FIRST SCAN → CHECK-IN
         await supabase.from('teacher_attendance').insert({
           teacher_id: teacher.id,
-          date: todayDate,
-          check_in: new Date().toISOString(),
+          date: todayDate, // 🔥 IST DATE
+          check_in: new Date().toISOString(), // UTC timestamp
           status: 'present',
         });
 
@@ -178,9 +184,6 @@ export default function TeacherScanPage() {
     }
   }
 
-  /* =========================
-     UI
-  ========================= */
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">
       <h1 className="text-xl mb-3">Scan Attendance QR</h1>
