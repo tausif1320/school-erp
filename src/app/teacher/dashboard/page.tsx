@@ -2,177 +2,112 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import toast from 'react-hot-toast';
 
-type AttendanceRow = {
+type Attendance = {
+  id: string;
   date: string;
-  status: string;
   check_in: string | null;
   check_out: string | null;
 };
 
 export default function TeacherDashboard() {
-  const [teacherId, setTeacherId] = useState<string | null>(null);
+  const [today, setToday] = useState<Attendance | null>(null);
+  const [history, setHistory] = useState<Attendance[]>([]);
 
-  const [today, setToday] = useState<AttendanceRow | null>(null);
-  const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const [month, setMonth] = useState(() =>
-    new Date().toISOString().slice(0, 7)
-  );
-
-  const [summary, setSummary] = useState({
-    present: 0,
-    absent: 0,
-    percentage: 0,
-  });
-
-  /* =========================
-     LOAD TEACHER BY EMAIL
-  ========================= */
-  async function loadTeacher() {
+  async function loadData() {
     const { data: auth } = await supabase.auth.getUser();
-    if (!auth?.user?.email) return;
+    if (!auth.user) return;
 
     const { data: teacher } = await supabase
       .from('teachers')
       .select('id')
-      .eq('mail', auth.user.email)
+      .eq('user_id', auth.user.id)
       .single();
 
-    if (teacher) setTeacherId(teacher.id);
-  }
+    if (!teacher) {
+      toast.error('Teacher profile not found');
+      return;
+    }
 
-  /* =========================
-     LOAD TODAY ATTENDANCE
-  ========================= */
-  async function loadTodayAttendance(tid: string) {
     const todayDate = new Date().toISOString().slice(0, 10);
 
-    const { data } = await supabase
+    const { data: todayRow } = await supabase
       .from('teacher_attendance')
-      .select('date, status, check_in, check_out')
-      .eq('teacher_id', tid)
+      .select('*')
+      .eq('teacher_id', teacher.id)
       .eq('date', todayDate)
       .maybeSingle();
 
-    setToday(data ?? null);
-  }
+    setToday(todayRow ?? null);
 
-  /* =========================
-     LOAD MONTHLY ATTENDANCE
-  ========================= */
-  async function loadAttendance(tid: string) {
-    const start = `${month}-01`;
-    const end = `${month}-31`;
-
-    const { data } = await supabase
+    const { data: rows } = await supabase
       .from('teacher_attendance')
-      .select('date, status, check_in, check_out')
-      .eq('teacher_id', tid)
-      .gte('date', start)
-      .lte('date', end)
+      .select('*')
+      .eq('teacher_id', teacher.id)
       .order('date', { ascending: false });
 
-    setAttendance(data ?? []);
-
-    const present = data?.filter(a => a.status === 'present').length ?? 0;
-    const absent = data?.filter(a => a.status === 'absent').length ?? 0;
-    const total = present + absent;
-
-    setSummary({
-      present,
-      absent,
-      percentage: total ? Math.round((present / total) * 100) : 0,
-    });
+    setHistory(rows ?? []);
   }
 
-  /* =========================
-     EFFECTS
-  ========================= */
-  useEffect(() => {
-    loadTeacher();
-  }, []);
+  async function checkout() {
+    if (!today) return;
 
-  useEffect(() => {
-    if (!teacherId) return;
-    loadTodayAttendance(teacherId);
-    loadAttendance(teacherId);
-  }, [teacherId, month]);
+    const { error } = await supabase
+      .from('teacher_attendance')
+      .update({ check_out: new Date().toISOString() })
+      .eq('id', today.id);
 
-  /* =========================
-     UI
-  ========================= */
+    if (error) {
+      toast.error('Failed to check out');
+      return;
+    }
+
+    toast.success('Checked out');
+    loadData();
+  }
+
   return (
     <div>
-      <h1 className="text-2xl mb-6">Teacher Dashboard</h1>
+      <h1 className="text-2xl mb-4">Teacher Dashboard</h1>
 
-      {/* TODAY SESSION */}
       <div className="bg-zinc-900 p-4 rounded-xl mb-6">
-        <h2 className="text-lg mb-2">Today’s Session</h2>
+        <p className="mb-1">Today</p>
+        <p>Check-in: {today?.check_in ?? '-'}</p>
+        <p>Check-out: {today?.check_out ?? '-'}</p>
 
-        {today ? (
-          <div className="text-sm space-y-1">
-            <p>Status: {today.status.toUpperCase()}</p>
-            <p>Check-in: {today.check_in ?? '—'}</p>
-            <p>Check-out: {today.check_out ?? '—'}</p>
-          </div>
-        ) : (
-          <p className="text-zinc-400 text-sm">
-            No attendance marked today
-          </p>
+        {today?.check_in && !today?.check_out && (
+          <button
+            onClick={checkout}
+            className="mt-3 bg-red-600 px-4 py-2 rounded"
+          >
+            Check Out
+          </button>
         )}
       </div>
 
-      {/* SUMMARY */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard label="Present" value={summary.present} />
-        <StatCard label="Absent" value={summary.absent} />
-        <StatCard label="Attendance %" value={`${summary.percentage}%`} />
-      </div>
-
-      {/* FILTER */}
-      <div className="mb-4">
-        <input
-          type="month"
-          className="p-2 bg-zinc-800 rounded"
-          value={month}
-          onChange={e => setMonth(e.target.value)}
-        />
-      </div>
-
-      {/* TABLE */}
-      <table className="w-full bg-zinc-900 text-sm rounded-xl">
+      <table className="w-full bg-zinc-900 rounded-xl text-sm">
         <thead className="bg-zinc-800">
           <tr>
-            <th className="p-3">Date</th>
-            <th>Status</th>
-            <th>Check-in</th>
-            <th>Check-out</th>
+            <th className="p-2">Date</th>
+            <th>Check In</th>
+            <th>Check Out</th>
           </tr>
         </thead>
         <tbody>
-          {attendance.map((a, i) => (
-            <tr key={i} className="border-t border-zinc-800">
-              <td className="p-3">{a.date}</td>
-              <td>{a.status}</td>
-              <td>{a.check_in ?? '—'}</td>
-              <td>{a.check_out ?? '—'}</td>
+          {history.map((r) => (
+            <tr key={r.id}>
+              <td className="p-2">{r.date}</td>
+              <td>{r.check_in ?? '-'}</td>
+              <td>{r.check_out ?? '-'}</td>
             </tr>
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-/* =========================
-   SMALL CARD
-========================= */
-function StatCard({ label, value }: { label: string; value: any }) {
-  return (
-    <div className="bg-zinc-900 p-4 rounded-xl">
-      <p className="text-zinc-400 text-sm">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
     </div>
   );
 }
