@@ -10,7 +10,7 @@ export default function AddTeacherPage() {
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    user_email: '',
+    email: '',
     full_name: '',
     gender: '',
     designation: '',
@@ -27,7 +27,7 @@ export default function AddTeacherPage() {
   });
 
   async function handleSubmit() {
-    if (!form.user_email || !form.full_name || !form.join_date) {
+    if (!form.email || !form.full_name || !form.join_date) {
       toast.error('Email, Name and Join Date are required');
       return;
     }
@@ -76,8 +76,8 @@ export default function AddTeacherPage() {
         <input
           placeholder="Teacher Email"
           className="p-2 bg-zinc-800 rounded col-span-2"
-          value={form.user_email}
-          onChange={e => setForm({ ...form, user_email: e.target.value })}
+          value={form.email}
+          onChange={e => setForm({ ...form, email: e.target.value })}
         />
 
         <input
