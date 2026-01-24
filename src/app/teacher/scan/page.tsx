@@ -82,38 +82,38 @@ export default function TeacherScanPage() {
   /* =========================
      HANDLE QR RESULT
   ========================= */
-  async function handleScan(token: string) {
-  if (scanLock.current) return;
-  scanLock.current = true;
-
+  async function handleScan(raw: string) {
   try {
-    toast.loading('Validating QR...', { id: 'qr' });
+    toast.loading('Validating...', { id: 'qr' });
 
-    const { data: qr } = await supabase
-      .from('qr_sessions')
-      .select('token, expires_at')
-      .limit(1)
-      .maybeSingle();
-
-    if (!qr || qr.token !== token) {
-      toast.error('Invalid QR', { id: 'qr' });
-      scanLock.current = false;
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      toast.error('Invalid QR format', { id: 'qr' });
       return;
     }
 
-    if (new Date(qr.expires_at) < new Date()) {
+    if (payload.type !== 'teacher_attendance') {
+      toast.error('Invalid QR type', { id: 'qr' });
+      return;
+    }
+
+    // ⏱️ Time validation (2 minutes)
+    const now = Date.now();
+    if (now - payload.issuedAt > 2 * 60 * 1000) {
       toast.error('QR expired', { id: 'qr' });
-      scanLock.current = false;
       return;
     }
 
+    // 👤 Auth user
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) {
       toast.error('Not logged in', { id: 'qr' });
-      scanLock.current = false;
       return;
     }
 
+    // 👨‍🏫 Teacher lookup
     const { data: teacher } = await supabase
       .from('teachers')
       .select('id')
@@ -122,12 +122,12 @@ export default function TeacherScanPage() {
 
     if (!teacher) {
       toast.error('Teacher profile not found', { id: 'qr' });
-      scanLock.current = false;
       return;
     }
 
     const today = new Date().toISOString().slice(0, 10);
 
+    // 🚫 Prevent duplicate
     const { data: existing } = await supabase
       .from('teacher_attendance')
       .select('id')
@@ -140,6 +140,7 @@ export default function TeacherScanPage() {
       return;
     }
 
+    // ✅ Insert attendance
     await supabase.from('teacher_attendance').insert({
       teacher_id: teacher.id,
       date: today,
@@ -152,7 +153,6 @@ export default function TeacherScanPage() {
   } catch (err) {
     console.error(err);
     toast.error('Check-in failed', { id: 'qr' });
-    scanLock.current = false;
   }
 }
 
