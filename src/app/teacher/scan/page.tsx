@@ -1,141 +1,117 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 export default function TeacherScanPage() {
   const router = useRouter();
-  const qrRef = useRef<Html5Qrcode | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const [scanning, setScanning] = useState(false);
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner(
+      'qr-reader',
+      { fps: 10, qrbox: 250 },
+      false
+    );
 
-  /* =========================
-     START SCAN
-  ========================= */
-  async function startScan() {
-    if (scanning) return;
+    scanner.render(
+      async (decodedText) => {
+        scanner.clear();
+        await handleScan(decodedText);
+      },
+      () => {}
+    );
 
-    try {
-      // 1️⃣ Ask location permission FIRST
-      await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        });
-      });
-    } catch {
-      toast.error('Location permission is required');
-      return;
-    }
+    return () => {
+      scanner.clear().catch(() => {});
+    };
+  }, []);
 
-    // 2️⃣ Start camera + QR scanner
-    const qr = new Html5Qrcode('qr-reader');
-    qrRef.current = qr;
-    setScanning(true);
-
-    try {
-      await qr.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        async (decodedText) => {
-          await handleScan(decodedText);
-        },
-        () => {}
-      );
-    } catch (err) {
-      toast.error('Camera permission is required');
-      setScanning(false);
-    }
-  }
-
-  /* =========================
-     STOP SCAN
-  ========================= */
-  async function stopScan() {
-    if (!qrRef.current) return;
-
-    try {
-      await qrRef.current.stop();
-      await qrRef.current.clear();
-    } catch {}
-
-    qrRef.current = null;
-    setScanning(false);
-  }
-
-  /* =========================
-     HANDLE QR RESULT
-  ========================= */
   async function handleScan(token: string) {
-    await stopScan();
-    const toastId = toast.loading('Validating QR...');
-
     try {
+      setLoading(true);
+
+      // 1️⃣ Validate QR
+      const { data: qr, error: qrError } = await supabase
+        .from('qr_sessions')
+        .select('*')
+        .eq('token', token)
+        .single();
+
+      if (qrError || !qr) {
+        toast.error('Invalid QR');
+        return;
+      }
+
+      if (new Date(qr.expires_at) < new Date()) {
+        toast.error('QR expired');
+        return;
+      }
+
+      // 2️⃣ Get logged-in teacher
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (!session?.user?.email) {
-        throw new Error('Session expired. Please login again.');
+      if (!user) {
+        toast.error('Not authenticated');
+        return;
       }
 
-      // get location AGAIN for payload (safe + fast)
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject);
+      const { data: teacher } = await supabase
+        .from('teachers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!teacher) {
+        toast.error('Teacher profile not found');
+        return;
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      // 3️⃣ Check existing attendance
+      const { data: existing } = await supabase
+        .from('teacher_attendance')
+        .select('*')
+        .eq('teacher_id', teacher.id)
+        .eq('date', today)
+        .maybeSingle();
+
+      if (existing?.check_in) {
+        toast.error('Already checked in');
+        return;
+      }
+
+      // 4️⃣ Insert attendance
+      await supabase.from('teacher_attendance').upsert({
+        teacher_id: teacher.id,
+        date: today,
+        check_in: new Date().toISOString(),
+        status: 'present',
       });
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/teacher-checkin`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            token,
-            email: session.user.email,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Check-in failed');
-      }
 
       toast.success('Check-in successful');
       router.push('/teacher/dashboard');
-    } catch (err: any) {
-      toast.error(err.message || 'Something went wrong');
+    } catch (err) {
+      console.error(err);
+      toast.error('Check-in failed');
     } finally {
-      toast.dismiss(toastId);
+      setLoading(false);
     }
   }
 
-  /* =========================
-     UI
-  ========================= */
   return (
-    <div className="flex flex-col items-center gap-4">
-      <h1 className="text-xl">Teacher Attendance</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center">
+      <h1 className="text-xl mb-4">Scan QR</h1>
 
-      {!scanning && (
-        <button
-          onClick={startScan}
-          className="px-4 py-2 bg-green-600 rounded"
-        >
-          Start Scan
-        </button>
-      )}
+      {loading && <p className="text-zinc-400">Validating QR…</p>}
 
-      <div id="qr-reader" className="w-72 h-72 bg-black rounded-xl" />
+      <div id="qr-reader" className="w-72" />
     </div>
   );
 }
