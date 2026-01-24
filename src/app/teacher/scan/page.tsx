@@ -10,104 +10,119 @@ export default function TeacherScanPage() {
   const router = useRouter();
   const qrRef = useRef<Html5Qrcode | null>(null);
 
-  const [cameraId, setCameraId] = useState('');
   const [cameras, setCameras] = useState<any[]>([]);
+  const [cameraId, setCameraId] = useState<string>('');
   const [scanning, setScanning] = useState(false);
 
   /* =========================
-     LOAD CAMERAS
+     LOAD CAMERAS (ONCE)
   ========================= */
   useEffect(() => {
-    Html5Qrcode.getCameras().then((devices) => {
-      setCameras(devices);
-      if (devices.length > 0) {
+    Html5Qrcode.getCameras()
+      .then((devices) => {
+        if (!devices || devices.length === 0) {
+          toast.error('No camera found');
+          return;
+        }
+        setCameras(devices);
         setCameraId(devices[devices.length - 1].id); // back camera
-      }
-    });
+      })
+      .catch(() => toast.error('Camera permission denied'));
   }, []);
 
   /* =========================
-     START SCAN
+     START SCANNING
   ========================= */
   async function startScan() {
     if (!cameraId) {
-      toast.error('Camera not available');
+      toast.error('Camera not ready');
       return;
     }
+
+    if (qrRef.current) return;
 
     qrRef.current = new Html5Qrcode('qr-reader');
     setScanning(true);
 
-    await qrRef.current.start(
-  cameraId,
-  { fps: 10, qrbox: 260 },
-  async (decodedText) => {
-    await stopScan();
-    await handleScan(decodedText.trim());
-  },
-  (errorMessage) => {
-    // Ignore scan errors (camera noise, partial scans)
-    // Do NOT toast here or UX will be awful
+    try {
+      await qrRef.current.start(
+        cameraId,
+        { fps: 10, qrbox: { width: 260, height: 260 } },
+        async (decodedText) => {
+          await stopScan();
+          await handleScan(decodedText.trim());
+        },
+        () => {
+          // ignore scan noise
+        }
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to start camera');
+      setScanning(false);
+    }
   }
-);
 
-
+  /* =========================
+     STOP SCANNING
+  ========================= */
   async function stopScan() {
     if (qrRef.current) {
-      await qrRef.current.stop().catch(() => {});
-      qrRef.current.clear();
+      try {
+        await qrRef.current.stop();
+        await qrRef.current.clear();
+      } catch {}
       qrRef.current = null;
     }
     setScanning(false);
   }
 
   /* =========================
-     HANDLE SCAN
+     HANDLE QR RESULT
   ========================= */
   async function handleScan(token: string) {
     try {
-      // 1️⃣ Validate QR
+      toast.loading('Validating QR...', { id: 'qr' });
+
+      // 1️⃣ validate QR
       const { data: qr } = await supabase
         .from('qr_sessions')
-        .select('*')
+        .select('token, expires_at')
         .eq('token', token)
         .single();
 
       if (!qr) {
-        toast.error('Invalid QR');
+        toast.error('Invalid QR', { id: 'qr' });
         return;
       }
 
       if (new Date(qr.expires_at) < new Date()) {
-        toast.error('QR expired');
+        toast.error('QR expired', { id: 'qr' });
         return;
       }
 
-      // 2️⃣ Auth user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        toast.error('Not logged in');
+      // 2️⃣ get logged in user
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) {
+        toast.error('Not logged in', { id: 'qr' });
         return;
       }
 
-      // 3️⃣ Find teacher
+      // 3️⃣ find teacher
       const { data: teacher } = await supabase
         .from('teachers')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', auth.user.id)
         .single();
 
       if (!teacher) {
-        toast.error('Teacher profile not found');
+        toast.error('Teacher profile not found', { id: 'qr' });
         return;
       }
 
       const today = new Date().toISOString().slice(0, 10);
 
-      // 4️⃣ Prevent duplicate check-in
+      // 4️⃣ prevent duplicate
       const { data: existing } = await supabase
         .from('teacher_attendance')
         .select('id')
@@ -116,11 +131,11 @@ export default function TeacherScanPage() {
         .maybeSingle();
 
       if (existing) {
-        toast.error('Already checked in');
+        toast.error('Already checked in', { id: 'qr' });
         return;
       }
 
-      // 5️⃣ Insert attendance
+      // 5️⃣ insert attendance
       await supabase.from('teacher_attendance').insert({
         teacher_id: teacher.id,
         date: today,
@@ -128,19 +143,28 @@ export default function TeacherScanPage() {
         status: 'present',
       });
 
-      toast.success('Check-in successful');
+      toast.success('Check-in successful', { id: 'qr' });
       router.push('/teacher/dashboard');
     } catch (err) {
       console.error(err);
-      toast.error('Scan failed');
+      toast.error('Check-in failed', { id: 'qr' });
     }
   }
+
+  /* =========================
+     CLEANUP
+  ========================= */
+  useEffect(() => {
+    return () => {
+      stopScan();
+    };
+  }, []);
 
   /* =========================
      UI
   ========================= */
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
       <h1 className="text-xl font-semibold">Scan Attendance QR</h1>
 
       <select
@@ -177,4 +201,4 @@ export default function TeacherScanPage() {
       )}
     </div>
   );
-}}
+}
