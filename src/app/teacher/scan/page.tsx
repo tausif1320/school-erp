@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 export default function TeacherScanPage() {
+  const scanLock = useRef(false);
+
   const router = useRouter();
   const qrRef = useRef<Html5Qrcode | null>(null);
 
@@ -81,75 +83,79 @@ export default function TeacherScanPage() {
      HANDLE QR RESULT
   ========================= */
   async function handleScan(token: string) {
-    try {
-      toast.loading('Validating QR...', { id: 'qr' });
+  if (scanLock.current) return;
+  scanLock.current = true;
 
-      // 1️⃣ validate QR
-      const { data: qr } = await supabase
-        .from('qr_sessions')
-        .select('token, expires_at')
-        .limit(1)
-        .maybeSingle();
+  try {
+    toast.loading('Validating QR...', { id: 'qr' });
 
-      if (!qr || qr.token !== token) {
-        toast.error('Invalid QR');
-        return;
-      }
+    const { data: qr } = await supabase
+      .from('qr_sessions')
+      .select('token, expires_at')
+      .limit(1)
+      .maybeSingle();
 
-      if (new Date(qr.expires_at) < new Date()) {
-        toast.error('QR expired', { id: 'qr' });
-        return;
-      }
-
-      // 2️⃣ get logged in user
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) {
-        toast.error('Not logged in', { id: 'qr' });
-        return;
-      }
-
-      // 3️⃣ find teacher
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('id')
-        .eq('user_id', auth.user.id)
-        .single();
-
-      if (!teacher) {
-        toast.error('Teacher profile not found', { id: 'qr' });
-        return;
-      }
-
-      const today = new Date().toISOString().slice(0, 10);
-
-      // 4️⃣ prevent duplicate
-      const { data: existing } = await supabase
-        .from('teacher_attendance')
-        .select('id')
-        .eq('teacher_id', teacher.id)
-        .eq('date', today)
-        .maybeSingle();
-
-      if (existing) {
-        toast.error('Already checked in', { id: 'qr' });
-        return;
-      }
-
-      // 5️⃣ insert attendance
-      await supabase.from('teacher_attendance').insert({
-        teacher_id: teacher.id,
-        date: today,
-        check_in: new Date().toISOString(),
-        status: 'present',
-      });
-
-      toast.success('Check-in successful', { id: 'qr' });
-      router.push('/teacher/dashboard');
-    } catch (err) {
-      console.error(err);
-      toast.error('Check-in failed', { id: 'qr' });
+    if (!qr || qr.token !== token) {
+      toast.error('Invalid QR', { id: 'qr' });
+      scanLock.current = false;
+      return;
     }
+
+    if (new Date(qr.expires_at) < new Date()) {
+      toast.error('QR expired', { id: 'qr' });
+      scanLock.current = false;
+      return;
+    }
+
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      toast.error('Not logged in', { id: 'qr' });
+      scanLock.current = false;
+      return;
+    }
+
+    const { data: teacher } = await supabase
+      .from('teachers')
+      .select('id')
+      .eq('user_id', auth.user.id)
+      .single();
+
+    if (!teacher) {
+      toast.error('Teacher profile not found', { id: 'qr' });
+      scanLock.current = false;
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data: existing } = await supabase
+      .from('teacher_attendance')
+      .select('id')
+      .eq('teacher_id', teacher.id)
+      .eq('date', today)
+      .maybeSingle();
+
+    if (existing) {
+      toast.error('Already checked in', { id: 'qr' });
+      return;
+    }
+
+    await supabase.from('teacher_attendance').insert({
+      teacher_id: teacher.id,
+      date: today,
+      check_in: new Date().toISOString(),
+      status: 'present',
+    });
+
+    toast.success('Check-in successful', { id: 'qr' });
+    router.push('/teacher/dashboard');
+  } catch (err) {
+    console.error(err);
+    toast.error('Check-in failed', { id: 'qr' });
+    scanLock.current = false;
   }
+}
+
 
   /* =========================
      CLEANUP
