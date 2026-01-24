@@ -11,8 +11,15 @@ type Attendance = {
 };
 
 /* =========================
-   IST TIME FORMATTER
+   IST HELPERS
 ========================= */
+function getISTDate() {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(now.getTime() + istOffset);
+  return ist.toISOString().slice(0, 10);
+}
+
 function formatIST(timestamp: string | null) {
   if (!timestamp) return '-';
 
@@ -56,13 +63,14 @@ export default function TeacherDashboard() {
       return;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    // 🔥 IST DATE (NOT UTC)
+    const todayIST = getISTDate();
 
     const { data } = await supabase
       .from('teacher_attendance')
       .select('id, check_in, check_out')
       .eq('teacher_id', teacher.id)
-      .eq('date', today)
+      .eq('date', todayIST)
       .maybeSingle();
 
     setAttendance(data ?? null);
