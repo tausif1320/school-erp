@@ -1,22 +1,31 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3;
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
+/* =========================
+   DISTANCE CALCULATION
+========================= */
+function getDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) {
+  const R = 6371000; // meters
+  const toRad = (v: number) => (v * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
 
   const a =
-    Math.sin(Δφ / 2) ** 2 +
-    Math.cos(φ1) * Math.cos(φ2) *
-    Math.sin(Δλ / 2) ** 2;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
@@ -24,30 +33,62 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 export default function TeacherScanPage() {
   const router = useRouter();
 
+  const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [scannerStarted, setScannerStarted] = useState(false);
+
+  /* =========================
+     REQUEST GPS FIRST
+  ========================= */
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
-      (pos) => startScanner(pos.coords.latitude, pos.coords.longitude),
-      () => toast.error('Location permission required')
+      (pos) => {
+        setGps({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+      },
+      () => {
+        toast.error('Location permission is required');
+      },
+      { enableHighAccuracy: true }
     );
   }, []);
 
-  function startScanner(userLat: number, userLng: number) {
-    const scanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: 250 }, false);
+  /* =========================
+     START SCANNER AFTER GPS
+  ========================= */
+  useEffect(() => {
+    if (!gps || scannerStarted) return;
 
-    scanner.render(async (text) => {
-      scanner.clear();
-      await handleScan(text, userLat, userLng);
-    },
-  () => {
-    
-  });
-  }
+    const scanner = new Html5QrcodeScanner(
+      'qr-reader',
+      { fps: 10, qrbox: 250 },
+      false
+    );
 
-  async function handleScan(text: string, userLat: number, userLng: number) {
+    scanner.render(
+      async (text) => {
+        scanner.clear();
+        await handleScan(text, gps.lat, gps.lng);
+      },
+      () => {}
+    );
+
+    setScannerStarted(true);
+  }, [gps]);
+
+  /* =========================
+     HANDLE SCAN
+  ========================= */
+  async function handleScan(
+    text: string,
+    userLat: number,
+    userLng: number
+  ) {
     try {
       const parts = text.split('|');
       if (parts.length !== 6) {
-        toast.error('Invalid QR');
+        toast.error('Invalid QR code');
         return;
       }
 
@@ -55,7 +96,9 @@ export default function TeacherScanPage() {
       const today = new Date().toISOString().slice(0, 10);
       const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
 
-      const expected = btoa(`${date}|${lat}|${lng}|${radius}|${secret}`);
+      const expected = btoa(
+        `${date}|${lat}|${lng}|${radius}|${secret}`
+      );
 
       if (date !== today || signature !== expected) {
         toast.error('QR expired or invalid');
@@ -70,11 +113,19 @@ export default function TeacherScanPage() {
       );
 
       if (distance > Number(radius)) {
-        toast.error('You are outside school premises');
+        toast.error(
+          `Outside school premises (${Math.round(distance)}m away)`
+        );
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      /* =========================
+         AUTH + TEACHER
+      ========================= */
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         toast.error('Not logged in');
         return;
@@ -120,10 +171,20 @@ export default function TeacherScanPage() {
     }
   }
 
+  /* =========================
+     UI
+  ========================= */
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">
-      <h1 className="text-xl mb-4">Scan Attendance QR</h1>
-      <div id="qr-reader" className="w-72" />
+      <h1 className="text-xl mb-3">Scan Attendance QR</h1>
+
+      {!gps && (
+        <p className="text-zinc-400">
+          Waiting for location permission…
+        </p>
+      )}
+
+      <div id="qr-reader" className="w-72 mt-4" />
     </div>
   );
 }
