@@ -1,200 +1,149 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { supabase } from '@/lib/supabase';
+import { useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
 
-/* =========================
-   IST DATE (SINGLE SOURCE)
-========================= */
-function getISTDate() {
-  const now = new Date();
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const ist = new Date(now.getTime() + istOffset);
-  return ist.toISOString().slice(0, 10);
-}
-
-/* =========================
-   DISTANCE UTILITY
-========================= */
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+function distanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+) {
   const R = 6371000;
-  const toRad = (v: number) => (v * Math.PI) / 180;
-
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
 
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 export default function TeacherScanPage() {
-  const router = useRouter();
-  const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
-  const [scannerStarted, setScannerStarted] = useState(false);
-
-  /* =========================
-     GET GPS FIRST
-  ========================= */
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGps({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
-      },
-      () => toast.error('Location permission required'),
-      { enableHighAccuracy: true }
-    );
-  }, []);
+    let scanner: any;
 
-  /* =========================
-     START SCANNER
-  ========================= */
-  useEffect(() => {
-    if (!gps || scannerStarted) return;
+    async function initScanner() {
+      // ✅ Dynamic import (THIS IS THE FIX)
+      const { Html5QrcodeScanner } = await import('html5-qrcode');
 
-    const scanner = new Html5QrcodeScanner(
-      'qr-reader',
-      { fps: 10, qrbox: 250 },
-      false
-    );
-
-    scanner.render(
-      async (text) => {
-        scanner.clear();
-        await handleScan(text, gps.lat, gps.lng);
-      },
-      () => {}
-    );
-
-    setScannerStarted(true);
-  }, [gps]);
-
-  /* =========================
-     HANDLE SCAN
-  ========================= */
-  async function handleScan(
-    qrText: string,
-    userLat: number,
-    userLng: number
-  ) {
-    try {
-      const parts = qrText.split('|');
-      if (parts.length !== 6) {
-        toast.error('Invalid QR');
-        return;
-      }
-
-      const [, date, latStr, lngStr, radiusStr, signature] = parts;
-      const todayIST = getISTDate();
-      const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
-
-      const expected = btoa(
-        `${date}|${latStr}|${lngStr}|${radiusStr}|${secret}`
+      scanner = new Html5QrcodeScanner(
+        'reader',
+        { fps: 10, qrbox: 250 },
+        false
       );
 
-      if (date !== todayIST || signature !== expected) {
-        toast.error('QR expired or invalid');
-        return;
-      }
+      scanner.render(async (text: string) => {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            try {
+              const parts = text.split('|');
+              if (parts.length !== 6) {
+                toast.error('Invalid QR');
+                return;
+              }
 
-      let qrLat = Number(latStr);
-      let qrLng = Number(lngStr);
+              const [, qrDate, qLat, qLng, qRad, sig] = parts;
 
-      // safety for swapped coords
-      if (Math.abs(qrLat) > 90) {
-        [qrLat, qrLng] = [qrLng, qrLat];
-      }
+              // ✅ Get IST date from DB
+              const { data: today } = await supabase
+                .rpc('current_ist_date')
+                .single();
 
-      const distance = getDistance(userLat, userLng, qrLat, qrLng);
-      const radius = Number(radiusStr);
+              if (qrDate !== today) {
+                toast.error('QR expired');
+                return;
+              }
 
-      if (distance > radius) {
-        toast.error(`Outside school premises (${Math.round(distance)}m)`);
-        return;
-      }
+              const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
+              const expected = btoa(
+                `${qrDate}|${qLat}|${qLng}|${qRad}|${secret}`
+              );
 
-      /* =========================
-         AUTH + TEACHER
-      ========================= */
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+              if (sig !== expected) {
+                toast.error('Invalid QR');
+                return;
+              }
 
-      if (!user) {
-        toast.error('Not logged in');
-        return;
-      }
+              const dist = distanceMeters(
+                pos.coords.latitude,
+                pos.coords.longitude,
+                Number(qLat),
+                Number(qLng)
+              );
 
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
+              if (dist > Number(qRad)) {
+                toast.error('Outside school premises');
+                return;
+              }
 
-      if (!teacher) {
-        toast.error('Teacher not found');
-        return;
-      }
+              const { data: auth } = await supabase.auth.getUser();
+              if (!auth.user) {
+                toast.error('Not logged in');
+                return;
+              }
 
-      /* =========================
-         ATTENDANCE (IST DATE)
-      ========================= */
-      const todayDate = todayIST;
+              const { data: teacher } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('user_id', auth.user.id)
+                .single();
 
-      const { data: existing } = await supabase
-        .from('teacher_attendance')
-        .select('*')
-        .eq('teacher_id', teacher.id)
-        .eq('date', todayDate)
-        .maybeSingle();
+              if (!teacher) {
+                toast.error('Teacher not found');
+                return;
+              }
 
-      if (!existing) {
-        await supabase.from('teacher_attendance').insert({
-          teacher_id: teacher.id,
-          date: todayDate, // 🔥 IST DATE
-          check_in: new Date().toISOString(), // UTC timestamp
-          status: 'present',
-        });
+              const { data: existing } = await supabase
+                .from('teacher_attendance')
+                .select('*')
+                .eq('teacher_id', teacher.id)
+                .eq('date', today)
+                .single();
 
-        toast.success('Checked in successfully');
-        router.push('/teacher/dashboard');
-        return;
-      }
-
-      if (existing.check_in && !existing.check_out) {
-        toast.success('Already checked in. Use dashboard to check out.');
-        router.push('/teacher/dashboard');
-        return;
-      }
-
-      toast.error('Attendance already completed for today');
-    } catch (err) {
-      console.error(err);
-      toast.error('Scan failed');
+              if (!existing?.check_in) {
+                await supabase.from('teacher_attendance').upsert({
+                  teacher_id: teacher.id,
+                  date: today,
+                  check_in: new Date().toISOString(),
+                  status: 'present',
+                });
+                toast.success('Checked in');
+              } else if (!existing.check_out) {
+                await supabase
+                  .from('teacher_attendance')
+                  .update({ check_out: new Date().toISOString() })
+                  .eq('id', existing.id);
+                toast.success('Checked out');
+              } else {
+                toast('Attendance already completed');
+              }
+            } catch {
+              toast.error('Scan failed');
+            }
+          },
+          () => toast.error('Location permission required'),
+          { enableHighAccuracy: true }
+        );
+      });
     }
-  }
+
+    initScanner();
+
+    return () => {
+      if (scanner?.clear) {
+        scanner.clear().catch(() => {});
+      }
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center">
-      <h1 className="text-xl mb-3">Scan Attendance QR</h1>
-
-      {!gps && (
-        <p className="text-zinc-400">
-          Waiting for location permission…
-        </p>
-      )}
-
-      <div id="qr-reader" className="w-72 mt-4" />
+    <div className="flex justify-center mt-10">
+      <div id="reader" className="w-[320px]" />
     </div>
   );
 }
