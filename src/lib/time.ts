@@ -1,17 +1,20 @@
-// src/lib/time.ts
+// utils/ist.ts
 
-// Returns current time in IST as ISO string
-export function nowIST(): string {
-  const now = new Date();
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  return new Date(now.getTime() + istOffset).toISOString();
+// Returns 'YYYY-MM-DD' for India Time
+export function getISTDateString(): string {
+  return new Date().toLocaleDateString('en-CA', { 
+    timeZone: 'Asia/Kolkata' 
+  });
 }
 
-// Returns today's date in IST (YYYY-MM-DD)
-export function todayIST(): string {
-  const now = new Date();
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  return new Date(now.getTime() + istOffset)
-    .toISOString()
-    .slice(0, 10);
+// Formats a UTC timestamp into a readable IST string
+export function formatToIST(isoString: string | null): string {
+  if (!isoString) return '-';
+  return new Date(isoString).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
 }

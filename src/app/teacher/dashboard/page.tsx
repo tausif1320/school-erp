@@ -3,34 +3,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+import { getISTDateString, formatToIST } from '@/lib/time';
 
 type Attendance = {
   id: string;
   check_in: string | null;
   check_out: string | null;
 };
-
-/* =========================
-   IST HELPERS
-========================= */
-function getISTDate() {
-  const now = new Date();
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const ist = new Date(now.getTime() + istOffset);
-  return ist.toISOString().slice(0, 10);
-}
-
-function formatIST(timestamp: string | null) {
-  if (!timestamp) return '-';
-
-  return new Date(timestamp).toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-  });
-}
 
 export default function TeacherDashboard() {
   const [attendance, setAttendance] = useState<Attendance | null>(null);
@@ -43,15 +22,10 @@ export default function TeacherDashboard() {
   async function loadTodayAttendance() {
     setLoading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return setLoading(false);
 
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
+    // Get Teacher Profile
     const { data: teacher } = await supabase
       .from('teachers')
       .select('id')
@@ -59,18 +33,18 @@ export default function TeacherDashboard() {
       .single();
 
     if (!teacher) {
-      setLoading(false);
-      return;
+      toast.error('Teacher profile not found');
+      return setLoading(false);
     }
 
-    // 🔥 IST DATE (NOT UTC)
-    const todayIST = getISTDate();
+    // 🔥 VITAL: Get the exact "YYYY-MM-DD" for India to query the date column
+    const todayIST = getISTDateString(); 
 
     const { data } = await supabase
       .from('teacher_attendance')
       .select('id, check_in, check_out')
       .eq('teacher_id', teacher.id)
-      .eq('date', todayIST)
+      .eq('date', todayIST) // Matches the 'date' column in your DB
       .maybeSingle();
 
     setAttendance(data ?? null);
@@ -80,57 +54,78 @@ export default function TeacherDashboard() {
   async function handleCheckout() {
     if (!attendance) return;
 
-    await supabase
+    // We send UTC ISO string. Supabase stores it as absolute time.
+    // When we fetch it back, 'formatToIST' converts it to +5:30.
+    const nowUTC = new Date().toISOString();
+
+    const { error } = await supabase
       .from('teacher_attendance')
       .update({
-        check_out: new Date().toISOString(), // UTC (correct)
+        check_out: nowUTC, 
+        status: 'present' // Optional: ensure status is set
       })
       .eq('id', attendance.id);
+
+    if (error) {
+      toast.error('Error checking out');
+      return;
+    }
 
     toast.success('Checked out successfully');
     loadTodayAttendance();
   }
 
-  if (loading) {
-    return <p className="text-zinc-400">Loading dashboard…</p>;
-  }
+  if (loading) return <div className="p-4 text-center">Loading dashboard...</div>;
 
   return (
-    <div className="max-w-xl mx-auto">
-      <h1 className="text-2xl mb-4">Teacher Dashboard</h1>
+    <div className="max-w-xl mx-auto p-4 space-y-6">
+      <h1 className="text-3xl font-bold text-gray-800">Teacher Dashboard</h1>
 
-      {!attendance && (
-        <p className="text-zinc-400">
-          You have not checked in today. Please scan the QR.
-        </p>
-      )}
-
-      {attendance && (
-        <div className="bg-zinc-900 p-4 rounded-xl space-y-3">
-          <p>
-            <strong>Check-in (IST):</strong>{' '}
-            {formatIST(attendance.check_in)}
+      {!attendance ? (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <p className="text-yellow-700">
+            ⚠ You have not checked in today (IST: {getISTDateString()}). 
+            <br />
+            Please scan the QR code at the school entrance.
           </p>
+        </div>
+      ) : (
+        <div className="bg-white shadow rounded-xl overflow-hidden border">
+          <div className="bg-gray-50 px-6 py-4 border-b">
+            <h2 className="text-lg font-medium text-gray-700">Today's Attendance</h2>
+            <p className="text-sm text-gray-500">{getISTDateString()}</p>
+          </div>
+          
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-green-50 p-4 rounded-lg">
+                <p className="text-xs text-gray-500 uppercase font-semibold">Check In</p>
+                <p className="text-xl font-mono text-green-700">
+                  {formatToIST(attendance.check_in)}
+                </p>
+              </div>
 
-          <p>
-            <strong>Check-out (IST):</strong>{' '}
-            {formatIST(attendance.check_out)}
-          </p>
+              <div className="bg-red-50 p-4 rounded-lg">
+                <p className="text-xs text-gray-500 uppercase font-semibold">Check Out</p>
+                <p className="text-xl font-mono text-red-700">
+                  {formatToIST(attendance.check_out)}
+                </p>
+              </div>
+            </div>
 
-          {!attendance.check_out && (
-            <button
-              onClick={handleCheckout}
-              className="bg-red-600 px-4 py-2 rounded"
-            >
-              Check Out
-            </button>
-          )}
-
-          {attendance.check_out && (
-            <p className="text-green-500">
-              Attendance completed for today
-            </p>
-          )}
+            {!attendance.check_out ? (
+              <button
+                onClick={handleCheckout}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-lg transition shadow-sm"
+              >
+                Tap to Check Out
+              </button>
+            ) : (
+              <div className="bg-green-100 text-green-800 p-3 rounded text-center font-medium">
+                ✅ Attendance Completed
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
