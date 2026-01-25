@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
 
+/* =========================
+   DISTANCE CALC (METERS)
+========================= */
 function distanceMeters(
   lat1: number,
   lng1: number,
@@ -24,120 +27,145 @@ function distanceMeters(
 }
 
 export default function TeacherScanPage() {
+  const scannedRef = useRef(false);
+  const scannerRef = useRef<any>(null);
+
   useEffect(() => {
-    let scanner: any;
+    let mounted = true;
 
-    async function initScanner() {
-      // ✅ Dynamic import (THIS IS THE FIX)
+    async function startScanner() {
+      // ✅ dynamic import (browser-only)
       const { Html5QrcodeScanner } = await import('html5-qrcode');
+      if (!mounted) return;
 
-      scanner = new Html5QrcodeScanner(
+      const scanner = new Html5QrcodeScanner(
         'reader',
         { fps: 10, qrbox: 250 },
         false
       );
 
-      scanner.render(async (text: string) => {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            try {
-              const parts = text.split('|');
-              if (parts.length !== 6) {
-                toast.error('Invalid QR');
-                return;
-              }
+      scannerRef.current = scanner;
 
-              const [, qrDate, qLat, qLng, qRad, sig] = parts;
+      // ✅ MUST PROVIDE TWO CALLBACKS
+      scanner.render(
+        async (text: string) => {
+          // ---------- SUCCESS ----------
+          if (scannedRef.current) return;
+          scannedRef.current = true;
 
-              // ✅ Get IST date from DB
-              const { data: today } = await supabase
-                .rpc('current_ist_date')
-                .single();
+          try {
+            // stop camera immediately
+            await scanner.clear();
 
-              if (qrDate !== today) {
-                toast.error('QR expired');
-                return;
-              }
+            navigator.geolocation.getCurrentPosition(
+              async (pos) => {
+                try {
+                  const parts = text.split('|');
+                  if (parts.length !== 6) {
+                    toast.error('Invalid QR');
+                    return;
+                  }
 
-              const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
-              const expected = btoa(
-                `${qrDate}|${qLat}|${qLng}|${qRad}|${secret}`
-              );
+                  const [, qrDate, qLat, qLng, qRad, sig] = parts;
 
-              if (sig !== expected) {
-                toast.error('Invalid QR');
-                return;
-              }
+                  // IST date from DB
+                  const { data: today } = await supabase
+                    .rpc('current_ist_date')
+                    .single();
 
-              const dist = distanceMeters(
-                pos.coords.latitude,
-                pos.coords.longitude,
-                Number(qLat),
-                Number(qLng)
-              );
+                  if (qrDate !== today) {
+                    toast.error('QR expired');
+                    return;
+                  }
 
-              if (dist > Number(qRad)) {
-                toast.error('Outside school premises');
-                return;
-              }
+                  const secret = process.env.NEXT_PUBLIC_QR_SECRET!;
+                  const expected = btoa(
+                    `${qrDate}|${qLat}|${qLng}|${qRad}|${secret}`
+                  );
 
-              const { data: auth } = await supabase.auth.getUser();
-              if (!auth.user) {
-                toast.error('Not logged in');
-                return;
-              }
+                  if (sig !== expected) {
+                    toast.error('Invalid QR');
+                    return;
+                  }
 
-              const { data: teacher } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('user_id', auth.user.id)
-                .single();
+                  const dist = distanceMeters(
+                    pos.coords.latitude,
+                    pos.coords.longitude,
+                    Number(qLat),
+                    Number(qLng)
+                  );
 
-              if (!teacher) {
-                toast.error('Teacher not found');
-                return;
-              }
+                  if (dist > Number(qRad)) {
+                    toast.error('Outside school premises');
+                    return;
+                  }
 
-              const { data: existing } = await supabase
-                .from('teacher_attendance')
-                .select('*')
-                .eq('teacher_id', teacher.id)
-                .eq('date', today)
-                .single();
+                  const { data: auth } = await supabase.auth.getUser();
+                  if (!auth.user) {
+                    toast.error('Not logged in');
+                    return;
+                  }
 
-              if (!existing?.check_in) {
-                await supabase.from('teacher_attendance').upsert({
-                  teacher_id: teacher.id,
-                  date: today,
-                  check_in: new Date().toISOString(),
-                  status: 'present',
-                });
-                toast.success('Checked in');
-              } else if (!existing.check_out) {
-                await supabase
-                  .from('teacher_attendance')
-                  .update({ check_out: new Date().toISOString() })
-                  .eq('id', existing.id);
-                toast.success('Checked out');
-              } else {
-                toast('Attendance already completed');
-              }
-            } catch {
-              toast.error('Scan failed');
-            }
-          },
-          () => toast.error('Location permission required'),
-          { enableHighAccuracy: true }
-        );
-      });
+                  const { data: teacher } = await supabase
+                    .from('teachers')
+                    .select('id')
+                    .eq('user_id', auth.user.id)
+                    .single();
+
+                  if (!teacher) {
+                    toast.error('Teacher not found');
+                    return;
+                  }
+
+                  const { data: existing } = await supabase
+                    .from('teacher_attendance')
+                    .select('*')
+                    .eq('teacher_id', teacher.id)
+                    .eq('date', today)
+                    .single();
+
+                  if (!existing?.check_in) {
+                    await supabase.from('teacher_attendance').upsert({
+                      teacher_id: teacher.id,
+                      date: today,
+                      check_in: new Date().toISOString(),
+                      status: 'present',
+                    });
+                    toast.success('Checked in');
+                  } else if (!existing.check_out) {
+                    await supabase
+                      .from('teacher_attendance')
+                      .update({
+                        check_out: new Date().toISOString(),
+                      })
+                      .eq('id', existing.id);
+                    toast.success('Checked out');
+                  } else {
+                    toast('Attendance already completed');
+                  }
+                } catch {
+                  toast.error('Scan failed');
+                }
+              },
+              () => toast.error('Location permission required'),
+              { enableHighAccuracy: true }
+            );
+          } catch {
+            toast.error('Scan failed');
+          }
+        },
+        () => {
+          // ---------- FAILURE (ignore frame errors) ----------
+          // Do nothing. Required by API.
+        }
+      );
     }
 
-    initScanner();
+    startScanner();
 
     return () => {
-      if (scanner?.clear) {
-        scanner.clear().catch(() => {});
-      }
+      mounted = false;
+      scannerRef.current?.clear?.().catch(() => {});
     };
   }, []);
 
