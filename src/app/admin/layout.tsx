@@ -7,40 +7,75 @@ import {
   LayoutDashboard, Users, QrCode, UserCircle, 
   TrendingUp, Wallet, Package, Shirt, BookOpen, 
   ChevronDown, ChevronRight, Search, LogOut, Menu, X, Bell,
-  icons
+  GraduationCap
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 const NAV_ITEMS = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
+  
+  // --- TEACHERS SECTION ---
   {
     name: 'Teachers',
     icon: Users,
     href: '#',
     submenu: [
-      {name: 'All Teachers', href : '/admin/teachers'},
-      {name: 'Add Teachers', href: '/admin/teachers/add'},
+      { name: 'All Teachers', href: '/admin/teachers' },
+      { name: 'Add Teacher', href: '/admin/teachers/add' },
     ]
-
   },
-  { name: 'Students', icon: UserCircle, href: '/admin/students' },
+
+  // --- STUDENTS SECTION (UPDATED) ---
+  { 
+    name: 'Students', 
+    icon: UserCircle, 
+    href: '#', 
+    submenu: [
+      { name: 'All Students', href: '/admin/students' },
+      { name: 'Add Student', href: '/admin/students/add' },
+    ]
+  },
+
   { name: 'Promote', icon: TrendingUp, href: '/admin/promote' },
   { name: 'QR Settings', icon: QrCode, href: '/admin/qr' },
-  { name: 'Fees', icon: Wallet, href: '#', submenu: [
+  
+  // --- FEES SECTION ---
+  { 
+    name: 'Fees', 
+    icon: Wallet, 
+    href: '#', 
+    submenu: [
       { name: 'Collect Fees', href: '/admin/fees' },
       { name: 'Fee Structure', href: '/admin/fees/classes' },
-  ]},
-  { name: 'Inventory', icon: Package, href: '#', submenu: [
-      { name: 'Notebooks', icon: BookOpen, subItems: [
-          { name: 'Issue Items', href: '/admin/inventory/notebooks/issues' },
+    ]
+  },
+
+  // --- INVENTORY SECTION ---
+  { 
+    name: 'Inventory', 
+    icon: Package, 
+    href: '#', 
+    submenu: [
+      { 
+        name: 'Notebooks', 
+        icon: BookOpen, 
+        subItems: [
+          { name: 'Issue Items', href: '/admin/inventory/notebooks/issue' },
           { name: 'Stock Status', href: '/admin/inventory/notebooks/stock' }
-      ]},
-      { name: 'Uniforms', icon: Shirt, subItems: [
-          { name: 'Issue Items', href: '/admin/inventory/uniforms/issues' },
+        ]
+      },
+      { 
+        name: 'Uniforms', 
+        icon: Shirt, 
+        subItems: [
+          { name: 'Issue Items', href: '/admin/inventory/uniforms/issue' },
           { name: 'Stock Status', href: '/admin/inventory/uniforms/stock' }
-      ]}
-  ]},
+        ]
+      }
+    ]
+  },
+
   { name: 'Profile', icon: UserCircle, href: '/admin/profile' },
 ];
 
@@ -189,7 +224,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 function SidebarItem({ item, expanded }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-  const isActive = pathname === item.href;
+  // Check if current path starts with item.href (for active state on submenus)
+  const isActive = pathname === item.href || (item.submenu && item.submenu.some((sub: any) => pathname.startsWith(sub.href)));
   const hasSub = !!item.submenu;
 
   return (
@@ -220,7 +256,7 @@ function SidebarItem({ item, expanded }: any) {
         <div className="ml-5 pl-4 border-l border-white/10 space-y-1 mt-1 mb-2">
           {item.submenu?.map((sub: any, idx: number) => (
             sub.subItems ? <NestedItem key={idx} item={sub} /> :
-            <Link key={idx} href={sub.href} className="block px-4 py-2 text-sm text-zinc-500 hover:text-indigo-400 hover:bg-white/5 rounded-lg transition-colors duration-200">
+            <Link key={idx} href={sub.href} className={`block px-4 py-2 text-sm rounded-lg transition-colors duration-200 ${pathname === sub.href ? 'text-indigo-400 bg-white/5' : 'text-zinc-500 hover:text-indigo-400 hover:bg-white/5'}`}>
               {sub.name}
             </Link>
           ))}
@@ -232,6 +268,8 @@ function SidebarItem({ item, expanded }: any) {
 
 function NestedItem({ item }: any) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  
   return (
     <div>
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
@@ -241,7 +279,7 @@ function NestedItem({ item }: any) {
       {open && (
         <div className="ml-3 mt-1 border-l border-white/10 pl-2 space-y-0.5">
           {item.subItems.map((sub: any, i: number) => (
-             <Link key={i} href={sub.href} className="block px-3 py-1.5 text-[13px] text-zinc-500 hover:text-indigo-400 rounded-md transition-colors">
+             <Link key={i} href={sub.href} className={`block px-3 py-1.5 text-[13px] rounded-md transition-colors ${pathname === sub.href ? 'text-indigo-400 font-medium' : 'text-zinc-500 hover:text-indigo-400'}`}>
                {sub.name}
              </Link>
           ))}
