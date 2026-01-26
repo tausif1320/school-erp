@@ -61,7 +61,7 @@ const NAV_ITEMS = [
         name: 'Notebooks', 
         icon: BookOpen, 
         subItems: [
-          { name: 'Issue Items', href: '/admin/inventory/notebooks/issue' },
+          { name: 'Issue Items', href: '/admin/inventory/notebooks/issues' },
           { name: 'Stock Status', href: '/admin/inventory/notebooks/stock' }
         ]
       },
@@ -69,7 +69,7 @@ const NAV_ITEMS = [
         name: 'Uniforms', 
         icon: Shirt, 
         subItems: [
-          { name: 'Issue Items', href: '/admin/inventory/uniforms/issue' },
+          { name: 'Issue Items', href: '/admin/inventory/uniforms/issues' },
           { name: 'Stock Status', href: '/admin/inventory/uniforms/stock' }
         ]
       }
