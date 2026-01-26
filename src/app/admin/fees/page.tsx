@@ -3,9 +3,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
-  Search, Filter, Plus, Calendar, Edit3, X, Check, Loader2, DollarSign, ChevronDown, ChevronLeft, ChevronRight 
+  Search, Filter, Plus, Calendar, Edit3, X, Check, Loader2, DollarSign, 
+  ChevronDown, ChevronLeft, ChevronRight, Download, FileText, Table as TableIcon 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { saveAs } from 'file-saver';
 
 /* --- TYPES --- */
 type FeeRow = {
@@ -23,21 +27,28 @@ export default function FeesPage() {
   /* --- STATES --- */
   const [month, setMonth] = useState(''); 
   const [academicYear, setAcademicYear] = useState('');
+  
+  // Data States
   const [fees, setFees] = useState<FeeRow[]>([]);
+  const [filteredFees, setFilteredFees] = useState<FeeRow[]>([]); // For search/filter results
+  
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
-  const [classFilter, setClassFilter] = useState('');
+  const [globalSearch, setGlobalSearch] = useState(''); // Universal Search
   
   const [editingFee, setEditingFee] = useState<FeeRow | null>(null);
   const [paidInput, setPaidInput] = useState('');
 
-  // UI States for Custom Pickers
+  // UI States
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  
   const datePickerRef = useRef<any>(null);
+  const exportRef = useRef<any>(null);
 
   /* =========================
-     LOAD DATA
+     LOGIC: LOAD DATA
   ========================= */
   async function loadFees() {
     if (!month || !academicYear) return;
@@ -58,7 +69,7 @@ export default function FeesPage() {
     const { data, error } = await query;
 
     if (!error && data) {
-      let rows: FeeRow[] = data.map((f: any) => ({
+      const rows: FeeRow[] = data.map((f: any) => ({
         id: f.id,
         student_id: f.student_id,
         admission_number: f.students.admission_number,
@@ -68,23 +79,36 @@ export default function FeesPage() {
         paid_amount: f.paid_amount,
         status: f.status,
       }));
-
-      if (classFilter) rows = rows.filter(r => r.class === classFilter);
       setFees(rows);
     }
     setLoading(false);
   }
 
+  // Load initial data on filter change
   useEffect(() => {
     loadFees();
-  }, [month, academicYear, statusFilter, classFilter]);
+  }, [month, academicYear, statusFilter]);
 
-  // Click Outside Listener (Fixed Logic)
+  // Handle Universal Search (Client-side)
+  useEffect(() => {
+    if (!globalSearch) {
+      setFilteredFees(fees);
+    } else {
+      const lowerSearch = globalSearch.toLowerCase();
+      const filtered = fees.filter(f => 
+        f.full_name.toLowerCase().includes(lowerSearch) ||
+        f.admission_number.toLowerCase().includes(lowerSearch) ||
+        f.class.toLowerCase().includes(lowerSearch)
+      );
+      setFilteredFees(filtered);
+    }
+  }, [globalSearch, fees]);
+
+  // Click Outside Handlers
   useEffect(() => {
     function handleClickOutside(event: any) {
-      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
-        setShowDatePicker(false);
-      }
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) setShowDatePicker(false);
+      if (exportRef.current && !exportRef.current.contains(event.target)) setShowExportMenu(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -134,10 +158,64 @@ export default function FeesPage() {
   }
 
   /* =========================
+     EXPORT FUNCTIONS
+  ========================= */
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.text(`Fee Report - ${month} (${academicYear})`, 14, 15);
+    
+    const tableColumn = ["Adm. No", "Student Name", "Class", "Total", "Paid", "Status"];
+    const tableRows = filteredFees.map(fee => [
+      fee.admission_number,
+      fee.full_name,
+      fee.class,
+      `Rs. ${fee.total_amount}`,
+      `Rs. ${fee.paid_amount}`,
+      fee.status
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 20,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [79, 70, 229] } // Indigo color
+    });
+
+    doc.save(`fees_${month}.pdf`);
+    setShowExportMenu(false);
+    toast.success("PDF Downloaded");
+  };
+
+  const exportToExcel = () => {
+    const csvRows = [];
+    const headers = ["Admission No", "Student Name", "Class", "Total Amount", "Paid Amount", "Status"];
+    csvRows.push(headers.join(','));
+
+    for (const row of filteredFees) {
+      const values = [
+        row.admission_number,
+        `"${row.full_name}"`, // Quote name to handle commas
+        row.class,
+        row.total_amount,
+        row.paid_amount,
+        row.status
+      ];
+      csvRows.push(values.join(','));
+    }
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    saveAs(blob, `fees_${month}.csv`);
+    setShowExportMenu(false);
+    toast.success("Excel/CSV Downloaded");
+  };
+
+  /* =========================
      HELPERS
   ========================= */
   const handleMonthSelect = (mIndex: number, e: any) => {
-    e.stopPropagation(); // Prevents menu from closing unexpectedly
+    e.stopPropagation(); 
     const mStr = String(mIndex + 1).padStart(2, '0');
     setMonth(`${pickerYear}-${mStr}`);
     setShowDatePicker(false);
@@ -162,16 +240,43 @@ export default function FeesPage() {
           <h1 className="text-3xl font-bold text-white tracking-tight">Fee Collection</h1>
           <p className="text-zinc-500 text-sm mt-1">Manage monthly tuition records</p>
         </div>
-        <button onClick={generateFees} disabled={loading} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          <span>Generate Records</span>
-        </button>
+        
+        <div className="flex gap-3 w-full md:w-auto">
+          {/* Export Dropdown */}
+          <div className="relative" ref={exportRef}>
+            <button 
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="h-full flex items-center gap-2 bg-zinc-900 border border-white/10 hover:bg-white/5 text-zinc-300 px-4 py-2.5 rounded-xl font-medium transition-all"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export</span>
+              <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
+            </button>
+            
+            {showExportMenu && (
+              <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-scale-up">
+                <button onClick={exportToPDF} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/5 text-left transition-colors">
+                  <FileText className="w-4 h-4 text-red-400" /> Export as PDF
+                </button>
+                <div className="h-px bg-white/5"></div>
+                <button onClick={exportToExcel} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/5 text-left transition-colors">
+                  <TableIcon className="w-4 h-4 text-green-400" /> Export as Excel
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button onClick={generateFees} disabled={loading} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            <span className="whitespace-nowrap">Generate Fees</span>
+          </button>
+        </div>
       </div>
 
       {/* FILTER BAR */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-4 rounded-2xl relative z-10">
         
-        {/* 1. CUSTOM MONTH PICKER (Fixed) */}
+        {/* 1. CUSTOM MONTH PICKER */}
         <div className="relative" ref={datePickerRef}>
           <button 
             type="button"
@@ -185,20 +290,16 @@ export default function FeesPage() {
             <ChevronDown className="w-4 h-4 text-zinc-600" />
           </button>
 
-          {/* DROPDOWN MENU */}
           {showDatePicker && (
             <div 
               className="absolute top-full left-0 mt-2 w-72 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-[100] p-4 animate-fade-in-up"
-              onClick={(e) => e.stopPropagation()} // Stop clicks inside from closing
+              onClick={(e) => e.stopPropagation()} 
             >
-              {/* Year Selector */}
               <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
                 <button type="button" onClick={() => setPickerYear(pickerYear - 1)} className="p-2 hover:bg-white/10 rounded-lg transition-colors"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
                 <span className="font-bold text-white text-lg">{pickerYear}</span>
                 <button type="button" onClick={() => setPickerYear(pickerYear + 1)} className="p-2 hover:bg-white/10 rounded-lg transition-colors"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>
               </div>
-
-              {/* Month Grid */}
               <div className="grid grid-cols-3 gap-2">
                 {Array.from({ length: 12 }).map((_, i) => (
                   <button
@@ -233,10 +334,14 @@ export default function FeesPage() {
           <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-zinc-600 pointer-events-none" />
         </div>
 
-        {/* 4. SEARCH */}
+        {/* 4. UNIVERSAL SEARCH (Replaces Class Filter) */}
         <div className="relative group">
           <Search className="absolute left-3 top-3.5 w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
-          <input placeholder="Filter by Class..." className="w-full bg-black/20 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-300 focus:bg-black/40 focus:border-indigo-500/50 outline-none transition-all placeholder:text-zinc-600" onChange={e => setClassFilter(e.target.value)} />
+          <input 
+            placeholder="Search Name, Class, or ID..." 
+            className="w-full bg-black/20 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-300 focus:bg-black/40 focus:border-indigo-500/50 outline-none transition-all placeholder:text-zinc-600" 
+            onChange={e => setGlobalSearch(e.target.value)} 
+          />
         </div>
       </div>
 
@@ -247,7 +352,7 @@ export default function FeesPage() {
             <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
             <p className="text-sm font-medium">Fetching records...</p>
           </div>
-        ) : fees.length === 0 ? (
+        ) : filteredFees.length === 0 ? (
           <div className="p-20 text-center flex flex-col items-center text-zinc-500">
              <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4"><Filter className="w-8 h-8 opacity-50" /></div>
              <p className="text-lg font-medium text-white">No records found</p>
@@ -258,6 +363,7 @@ export default function FeesPage() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-zinc-500 uppercase bg-white/5 border-b border-white/5">
                 <tr>
+                  <th className="px-6 py-4 font-semibold whitespace-nowrap">Adm. No</th>
                   <th className="px-6 py-4 font-semibold whitespace-nowrap">Student Name</th>
                   <th className="px-6 py-4 font-semibold">Class</th>
                   <th className="px-6 py-4 font-semibold">Total</th>
@@ -267,12 +373,18 @@ export default function FeesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {fees.map((f) => (
+                {filteredFees.map((f) => (
                   <tr key={f.id} className="group hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-white">{f.full_name}</div>
-                      <div className="text-[11px] text-zinc-500 font-mono mt-0.5">{f.admission_number}</div>
+                    {/* NEW COLUMN: Admission Number */}
+                    <td className="px-6 py-4 text-zinc-400 font-mono text-xs">
+                      {f.admission_number}
                     </td>
+                    
+                    {/* Student Name */}
+                    <td className="px-6 py-4 font-medium text-white">
+                      {f.full_name}
+                    </td>
+
                     <td className="px-6 py-4"><span className="bg-white/5 px-2 py-1 rounded text-xs border border-white/5 text-zinc-300">{f.class}</span></td>
                     <td className="px-6 py-4 text-zinc-300 font-mono">₹{f.total_amount.toLocaleString()}</td>
                     <td className="px-6 py-4 font-mono"><span className={`${f.paid_amount > 0 ? 'text-emerald-400' : 'text-zinc-500'}`}>₹{f.paid_amount.toLocaleString()}</span></td>
@@ -288,7 +400,7 @@ export default function FeesPage() {
         )}
       </div>
 
-      {/* --- MODAL --- */}
+      {/* --- EDIT MODAL --- */}
       {editingFee && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-zinc-900 border border-white/10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
