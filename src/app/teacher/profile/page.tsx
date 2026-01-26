@@ -4,8 +4,129 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Phone, Calendar, MapPin, Briefcase, Book, Clock } from 'lucide-react';
+import { 
+  User, Mail, Phone, Calendar, MapPin, Briefcase, 
+  BookOpen, Star, Clock, Save, X, Edit3, Loader2 
+} from 'lucide-react';
 
+/* =========================
+   UI HELPER COMPONENTS
+========================= */
+function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl transition-all hover:border-white/10">
+      <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-4">
+        <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
+          {icon}
+        </div>
+        <h2 className="text-sm font-bold uppercase tracking-wider text-white">{title}</h2>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FieldGroup({ label, icon, name, value, onChange, edit, type = 'text', locked = false, placeholder }: any) {
+  return (
+    <div className="space-y-1.5 group">
+      <label className="text-xs text-zinc-500 font-bold ml-1 uppercase flex items-center gap-1 group-hover:text-zinc-400 transition-colors">
+        {label}
+      </label>
+      <div className="relative">
+        <div className="absolute left-3 top-3 text-zinc-500 group-focus-within:text-white transition-colors pointer-events-none">
+          {icon}
+        </div>
+        
+        {edit && !locked ? (
+          <input
+            type={type}
+            name={name}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className={`
+              w-full bg-black/40 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 
+              text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none 
+              transition-all placeholder:text-zinc-700 font-medium
+              ${type === 'date' ? '[color-scheme:dark]' : ''}
+            `}
+          />
+        ) : (
+          <div className="w-full bg-white/5 border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-200 font-medium cursor-default">
+            {value || <span className="text-zinc-600 italic">Not provided</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SelectGroup({ label, icon, name, value, onChange, edit, options }: any) {
+  return (
+    <div className="space-y-1.5 group">
+      <label className="text-xs text-zinc-500 font-bold ml-1 uppercase flex items-center gap-1 group-hover:text-zinc-400 transition-colors">
+        {label}
+      </label>
+      <div className="relative">
+        <div className="absolute left-3 top-3 text-zinc-500 group-focus-within:text-white transition-colors pointer-events-none">
+          {icon}
+        </div>
+        
+        {edit ? (
+          <select
+            name={name}
+            value={value}
+            onChange={onChange}
+            className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none transition-all appearance-none cursor-pointer"
+          >
+            {options.map((opt: string) => (
+              <option key={opt} value={opt} className="bg-zinc-900">{opt}</option>
+            ))}
+          </select>
+        ) : (
+          <div className="w-full bg-white/5 border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-200 font-medium cursor-default capitalize">
+            {value}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TextAreaGroup({ label, icon, name, value, onChange, edit, placeholder }: any) {
+  return (
+    <div className="space-y-1.5 md:col-span-2 group">
+      <label className="text-xs text-zinc-500 font-bold ml-1 uppercase flex items-center gap-1 group-hover:text-zinc-400 transition-colors">
+        {label}
+      </label>
+      <div className="relative">
+        <div className="absolute left-3 top-3 text-zinc-500 group-focus-within:text-white transition-colors pointer-events-none">
+          {icon}
+        </div>
+        
+        {edit ? (
+          <textarea
+            name={name}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none transition-all placeholder:text-zinc-700 font-medium min-h-[100px] resize-none"
+          />
+        ) : (
+          <div className="w-full bg-white/5 border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-200 font-medium cursor-default min-h-[100px]">
+            {value || <span className="text-zinc-600 italic">Not provided</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================
+   MAIN COMPONENT
+========================= */
 export default function TeacherProfile() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -13,56 +134,40 @@ export default function TeacherProfile() {
   const [isEditing, setIsEditing] = useState(false);
   
   const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    gender: 'male',
-    dob: '',
-    current_address: '',
-    permanent_address: '',
-    father_name: '',
-    mother_name: '',
-    husband_name: '',
-    designation: '',
-    subject: '',
-    experience: '',
-    join_date: '',
+    full_name: '', email: '', phone: '', gender: 'Male', dob: '',
+    current_address: '', permanent_address: '',
+    father_name: '', mother_name: '', husband_name: '',
+    designation: '', subject: '', experience: '', join_date: '',
   });
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    async function fetchProfile() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return router.push('/auth/login');
 
-  async function fetchProfile() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return router.push('/login');
-
-    const { data, error } = await supabase
-      .from('teachers')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-
-    if (data) {
-      setFormData({
-        full_name: data.full_name || '',
-        email: data.email || '',
-        phone: data.phone || '',
-        gender: data.gender || 'male',
-        dob: data.dob || '',
-        current_address: data.current_address || '',
-        permanent_address: data.permanent_address || '',
-        father_name: data.father_name || '',
-        mother_name: data.mother_name || '',
-        husband_name: data.husband_name || '',
-        designation: data.designation || '',
-        subject: data.subject || '',
-        experience: data.experience || '',
-        join_date: data.join_date || '',
-      });
+      const { data } = await supabase.from('teachers').select('*').eq('user_id', user.id).single();
+      if (data) {
+        setFormData({
+          full_name: data.full_name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          gender: data.gender || 'Male',
+          dob: data.dob || '',
+          current_address: data.current_address || '',
+          permanent_address: data.permanent_address || '',
+          father_name: data.father_name || '',
+          mother_name: data.mother_name || '',
+          husband_name: data.husband_name || '',
+          designation: data.designation || '',
+          subject: data.subject || '',
+          experience: data.experience || '',
+          join_date: data.join_date || '',
+        });
+      }
+      setLoading(false);
     }
-    setLoading(false);
-  }
+    fetchProfile();
+  }, [router]);
 
   const handleChange = (e: any) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -71,187 +176,142 @@ export default function TeacherProfile() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase
-      .from('teachers')
-      .update(formData)
-      .eq('user_id', user.id);
-
-    setSaving(false);
-    if (error) {
-      toast.error('Failed to update');
-    } else {
-      toast.success('Profile updated');
-      setIsEditing(false); // Return to view mode
+    const { error } = await supabase.from('teachers').update(formData).eq('user_id', user.id);
+    
+    if (error) toast.error('Failed to update profile');
+    else {
+      toast.success('Profile updated successfully');
+      setIsEditing(false);
     }
+    setSaving(false);
   }
 
-  if (loading) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
+  if (loading) return (
+    <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
+      <div className="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+      <p className="text-zinc-500 text-sm animate-pulse font-medium">Loading Profile...</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 md:p-12">
-      <div className="max-w-4xl mx-auto">
-        
-        {/* HEADER */}
-        <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-4">
-          <div>
-            <h1 className="text-3xl font-bold">My Profile</h1>
-            <p className="text-zinc-400 text-sm mt-1">Manage your personal and academic details</p>
-          </div>
-          {!isEditing && (
-            <button 
-              onClick={() => setIsEditing(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium transition"
-            >
-              Edit Profile
-            </button>
-          )}
+    <div className="animate-fade-in-up pb-24 md:pb-10 max-w-5xl mx-auto space-y-8">
+      
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">My Profile</h1>
+          <p className="text-zinc-400 text-sm mt-1">Manage your personal information and academic records</p>
         </div>
 
-        {/* FORM / VIEW */}
-        <form onSubmit={handleSubmit} className="space-y-8">
-          
-          {/* SECTION 1: BASIC DETAILS */}
-          <Section title="Personal Information" icon={<User className="w-5 h-5 text-blue-500" />}>
-            <Grid>
-              <Field label="Full Name" name="full_name" val={formData.full_name} edit={isEditing} onChange={handleChange} />
-              <Field label="Email" name="email" val={formData.email} edit={false} onChange={handleChange} locked />
-              <Field label="Phone" name="phone" val={formData.phone} edit={isEditing} onChange={handleChange} />
-              
-              {isEditing ? (
-                <div className="space-y-1">
-                  <label className="text-xs uppercase text-zinc-500 font-semibold tracking-wider">Gender</label>
-                  <select 
-                    name="gender" 
-                    value={formData.gender} 
-                    onChange={handleChange}
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-white focus:border-blue-500 outline-none"
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              ) : (
-                <Field label="Gender" name="gender" val={formData.gender} edit={false} onChange={handleChange} />
-              )}
-              
-              <Field label="Date of Birth" name="dob" val={formData.dob} edit={isEditing} type="date" onChange={handleChange} />
-            </Grid>
-          </Section>
-
-          {/* SECTION 2: PROFESSIONAL */}
-          <Section title="Professional Details" icon={<Briefcase className="w-5 h-5 text-purple-500" />}>
-            <Grid>
-              <Field label="Designation" name="designation" val={formData.designation} edit={isEditing} onChange={handleChange} />
-              <Field label="Subject" name="subject" val={formData.subject} edit={isEditing} onChange={handleChange} />
-              <Field label="Experience (Years)" name="experience" val={formData.experience} edit={isEditing} onChange={handleChange} />
-              <Field label="Join Date" name="join_date" val={formData.join_date} edit={isEditing} type="date" onChange={handleChange} />
-            </Grid>
-          </Section>
-
-          {/* SECTION 3: FAMILY & ADDRESS */}
-          <Section title="Family & Address" icon={<MapPin className="w-5 h-5 text-green-500" />}>
-            <Grid cols={3}>
-              <Field label="Father's Name" name="father_name" val={formData.father_name} edit={isEditing} onChange={handleChange} />
-              <Field label="Mother's Name" name="mother_name" val={formData.mother_name} edit={isEditing} onChange={handleChange} />
-              <Field label="Spouse Name" name="husband_name" val={formData.husband_name} edit={isEditing} onChange={handleChange} />
-            </Grid>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-              <TextArea label="Current Address" name="current_address" val={formData.current_address} edit={isEditing} onChange={handleChange} />
-              <TextArea label="Permanent Address" name="permanent_address" val={formData.permanent_address} edit={isEditing} onChange={handleChange} />
-            </div>
-          </Section>
-
-          {/* ACTIONS */}
-          {isEditing && (
-            <div className="flex items-center gap-4 pt-4 border-t border-zinc-800">
-              <button 
-                type="button" 
-                onClick={() => setIsEditing(false)}
-                className="px-6 py-3 rounded-lg border border-zinc-700 hover:bg-zinc-800 transition text-zinc-300"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                disabled={saving}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold transition disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          )}
-
-        </form>
+        {!isEditing ? (
+          <button 
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl"
+          >
+            <Edit3 className="w-4 h-4 text-indigo-400" />
+            <span>Edit Profile</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <button 
+              onClick={() => setIsEditing(false)}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 rounded-xl font-medium transition-colors"
+            >
+              <X className="w-4 h-4" /> Cancel
+            </button>
+            <button 
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+            </button>
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
 
-// --- UI COMPONENTS FOR DARK THEME ---
+      <div className="grid grid-cols-1 gap-8">
+        
+        {/* SECTION 1: PERSONAL & CONTACT */}
+        <Section title="Personal Information" icon={<User className="w-5 h-5" />}>
+          <FieldGroup 
+            label="Full Name" name="full_name" value={formData.full_name} 
+            onChange={handleChange} edit={isEditing} icon={<User className="w-4 h-4" />} 
+          />
+          <FieldGroup 
+            label="Email Address" name="email" value={formData.email} 
+            onChange={handleChange} edit={false} locked icon={<Mail className="w-4 h-4" />} 
+          />
+          <FieldGroup 
+            label="Phone Number" name="phone" value={formData.phone} 
+            onChange={handleChange} edit={isEditing} icon={<Phone className="w-4 h-4" />} 
+          />
+          <SelectGroup 
+            label="Gender" name="gender" value={formData.gender} 
+            onChange={handleChange} edit={isEditing} icon={<User className="w-4 h-4" />}
+            options={['Male', 'Female', 'Other']}
+          />
+          <FieldGroup 
+            label="Date of Birth" name="dob" value={formData.dob} 
+            onChange={handleChange} edit={isEditing} type="date" icon={<Calendar className="w-4 h-4" />} 
+          />
+        </Section>
 
-function Section({ title, icon, children }: any) {
-  return (
-    <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-xl">
-      <div className="flex items-center gap-2 mb-6">
-        {icon}
-        <h2 className="text-xl font-semibold">{title}</h2>
+        {/* SECTION 2: PROFESSIONAL */}
+        <Section title="Professional Details" icon={<Briefcase className="w-5 h-5" />}>
+          <FieldGroup 
+            label="Designation" name="designation" value={formData.designation} 
+            onChange={handleChange} edit={isEditing} icon={<Briefcase className="w-4 h-4" />} 
+          />
+          <FieldGroup 
+            label="Subject Specialization" name="subject" value={formData.subject} 
+            onChange={handleChange} edit={isEditing} icon={<BookOpen className="w-4 h-4" />} 
+          />
+          <FieldGroup 
+            label="Experience (Years)" name="experience" value={formData.experience} 
+            onChange={handleChange} edit={isEditing} type="number" icon={<Star className="w-4 h-4" />} 
+          />
+          <FieldGroup 
+            label="Joining Date" name="join_date" value={formData.join_date} 
+            onChange={handleChange} edit={isEditing} type="date" icon={<Clock className="w-4 h-4" />} 
+          />
+        </Section>
+
+        {/* SECTION 3: FAMILY */}
+        <Section title="Family Details" icon={<User className="w-5 h-5" />}>
+          <FieldGroup 
+            label="Father's Name" name="father_name" value={formData.father_name} 
+            onChange={handleChange} edit={isEditing} icon={<User className="w-4 h-4" />} 
+          />
+          <FieldGroup 
+            label="Mother's Name" name="mother_name" value={formData.mother_name} 
+            onChange={handleChange} edit={isEditing} icon={<User className="w-4 h-4" />} 
+          />
+          <FieldGroup 
+            label="Spouse Name" name="husband_name" value={formData.husband_name} 
+            onChange={handleChange} edit={isEditing} icon={<User className="w-4 h-4" />} 
+          />
+        </Section>
+
+        {/* SECTION 4: ADDRESS */}
+        <Section title="Address Information" icon={<MapPin className="w-5 h-5" />}>
+          <TextAreaGroup 
+            label="Current Address" name="current_address" value={formData.current_address} 
+            onChange={handleChange} edit={isEditing} icon={<MapPin className="w-4 h-4" />}
+            placeholder="Enter full current address..."
+          />
+          <TextAreaGroup 
+            label="Permanent Address" name="permanent_address" value={formData.permanent_address} 
+            onChange={handleChange} edit={isEditing} icon={<MapPin className="w-4 h-4" />}
+            placeholder="Enter full permanent address..."
+          />
+        </Section>
+
       </div>
-      {children}
-    </div>
-  );
-}
-
-function Grid({ children, cols = 2 }: any) {
-  return (
-    <div className={`grid grid-cols-1 md:grid-cols-${cols} gap-6`}>
-      {children}
-    </div>
-  );
-}
-
-function Field({ label, name, val, edit, onChange, type = "text", locked = false }: any) {
-  return (
-    <div className="space-y-1">
-      <label className="text-xs uppercase text-zinc-500 font-semibold tracking-wider">{label}</label>
-      {edit && !locked ? (
-        <input 
-          type={type} 
-          name={name} 
-          value={val} 
-          onChange={onChange}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
-        />
-      ) : (
-        <p className="p-3 bg-zinc-900/30 border border-transparent border-b-zinc-800 text-zinc-200 min-h-[46px] flex items-center">
-          {val || <span className="text-zinc-600 italic">Not set</span>}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function TextArea({ label, name, val, edit, onChange }: any) {
-  return (
-    <div className="space-y-1">
-      <label className="text-xs uppercase text-zinc-500 font-semibold tracking-wider">{label}</label>
-      {edit ? (
-        <textarea 
-          name={name} 
-          value={val} 
-          onChange={onChange}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-white h-24 focus:border-blue-500 outline-none transition resize-none"
-        />
-      ) : (
-        <p className="p-3 bg-zinc-900/30 border border-transparent border-b-zinc-800 text-zinc-200 h-24 overflow-auto">
-          {val || <span className="text-zinc-600 italic">Not set</span>}
-        </p>
-      )}
     </div>
   );
 }
