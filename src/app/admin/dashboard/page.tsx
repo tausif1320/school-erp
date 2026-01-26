@@ -2,295 +2,201 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+// 1. REMOVE Defs, LinearGradient, Stop from here
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from 'recharts';
 import { 
-  Users, UserCheck, UserX, Wallet, 
-  Package, Shirt, BookOpen, TrendingUp, MoreHorizontal
+  Users, UserCheck, Wallet, Package, ArrowUpRight, Filter, Calendar
 } from 'lucide-react';
-
-/* =========================
-   ADMIN DASHBOARD
-========================= */
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
-
-  // Stats State
-  const [studentCount, setStudentCount] = useState(0);
-  const [teacherCount, setTeacherCount] = useState(0);
-  const [attendanceSummary, setAttendanceSummary] = useState({ present: 0, absent: 0 });
-
-  // Inventory State
-  const [uniformStock, setUniformStock] = useState(0);
-  const [notebookStock, setNotebookStock] = useState(0);
-  const [inventoryCollected, setInventoryCollected] = useState(0);
-  const [inventoryDue, setInventoryDue] = useState(0);
-
-  // Fees State
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7)); // Default to current month
-  const [feeSummary, setFeeSummary] = useState({ total: 0, collected: 0, due: 0 });
-  const [feeGraphData, setFeeGraphData] = useState<{ month: string; collected: number; due: number }[]>([]);
-
-  /* =========================
-     DATA LOADING LOGIC
-  ========================= */
-  useEffect(() => {
-    async function loadAllData() {
-      setLoading(true);
-      await Promise.all([
-        loadCounts(),
-        loadInventorySummary(),
-        loadAttendanceSummary(),
-        loadFeeGraph(),
-        loadFeeSummary(), // Load initial month
-      ]);
-      setLoading(false);
-    }
-    loadAllData();
-  }, []);
+  
+  // Data States
+  const [counts, setCounts] = useState({ student: 0, teacher: 0 });
+  const [feeGraph, setFeeGraph] = useState<any[]>([]);
+  const [graphFilter, setGraphFilter] = useState('6_months');
 
   useEffect(() => {
-    loadFeeSummary();
-  }, [month]);
+    loadData();
+  }, [graphFilter]);
 
-  async function loadCounts() {
-    const { count: students } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'active');
-    const { count: teachers } = await supabase.from('teachers').select('*', { count: 'exact', head: true }).eq('status', 'active');
-    setStudentCount(students ?? 0);
-    setTeacherCount(teachers ?? 0);
-  }
-
-  async function loadInventorySummary() {
-    const [uniformStockRes, notebookStockRes, uniformIssuesRes, notebookIssuesRes] = await Promise.all([
-      supabase.from('uniform_stock').select('quantity'),
-      supabase.from('notebook_stock').select('quantity'),
-      supabase.from('uniform_issues').select('total_amount, paid_amount'),
-      supabase.from('notebook_issues').select('total_amount, paid_amount'),
-    ]);
-
-    const totalUniformStock = uniformStockRes.data?.reduce((s, r) => s + r.quantity, 0) ?? 0;
-    const totalNotebookStock = notebookStockRes.data?.reduce((s, r) => s + r.quantity, 0) ?? 0;
+  async function loadData() {
+    setLoading(true);
     
-    const allIssues = [...(uniformIssuesRes.data ?? []), ...(notebookIssuesRes.data ?? [])];
-    const collected = allIssues.reduce((s, r) => s + r.paid_amount, 0);
-    const issued = allIssues.reduce((s, r) => s + r.total_amount, 0);
+    // 1. Counts
+    const { count: s } = await supabase.from('students').select('*', { count: 'exact', head: true });
+    const { count: t } = await supabase.from('teachers').select('*', { count: 'exact', head: true });
+    setCounts({ student: s ?? 0, teacher: t ?? 0 });
 
-    setUniformStock(totalUniformStock);
-    setNotebookStock(totalNotebookStock);
-    setInventoryCollected(collected);
-    setInventoryDue(issued - collected);
-  }
-
-  async function loadFeeGraph() {
-    const { data } = await supabase
+    // 2. Fees Graph
+    const { data: fees } = await supabase
       .from('fee_records')
       .select('fee_month, total_amount, paid_amount')
       .order('fee_month', { ascending: false })
-      .limit(6);
-
-    if (!data) return;
-
-    const grouped: Record<string, { total: number; paid: number }> = {};
-    data.forEach((f) => {
-      if (!grouped[f.fee_month]) grouped[f.fee_month] = { total: 0, paid: 0 };
-      grouped[f.fee_month].total += f.total_amount;
-      grouped[f.fee_month].paid += f.paid_amount;
-    });
-
-    setFeeGraphData(Object.entries(grouped).map(([m, v]) => ({ month: m, collected: v.paid, due: v.total - v.paid })).reverse());
+      .limit(graphFilter === '6_months' ? 6 : 12);
+    
+    if (fees) {
+      const formatted = fees.map(f => ({
+        name: f.fee_month,
+        collected: f.paid_amount,
+        due: f.total_amount - f.paid_amount
+      })).reverse();
+      setFeeGraph(formatted);
+    }
+    
+    setLoading(false);
   }
 
-  async function loadFeeSummary() {
-    if (!month) return;
-    const { data } = await supabase.from('fee_records').select('total_amount, paid_amount').eq('fee_month', month);
-    if (!data) return;
-    const total = data.reduce((s, f) => s + f.total_amount, 0);
-    const collected = data.reduce((s, f) => s + f.paid_amount, 0);
-    setFeeSummary({ total, collected, due: total - collected });
-  }
-
-  async function loadAttendanceSummary() {
-    const now = new Date();
-    const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const { data } = await supabase.from('teacher_attendance').select('status').gte('date', start);
-    if (!data) return;
-    setAttendanceSummary({
-      present: data.filter((a) => a.status === 'present').length,
-      absent: data.filter((a) => a.status === 'absent').length,
-    });
-  }
-
-  if (loading) return <div className="p-10 text-center text-slate-400">Loading Dashboard Data...</div>;
+  if (loading) return <div className="p-10 text-center text-zinc-500 animate-pulse">Syncing Dashboard...</div>;
 
   return (
     <div className="space-y-8 animate-fade-in-up">
       
-      {/* HEADER */}
-      <div className="flex justify-between items-end">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
-          <p className="text-slate-400 text-sm mt-1">Real-time metrics for your school administration.</p>
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
+            Overview
+          </h1>
+          <p className="text-zinc-500 mt-1">Welcome to Project Aalu Command Center</p>
         </div>
-      </div>
-
-      {/* --- SECTION 1: PEOPLE STATS --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard 
-          label="Total Students" 
-          value={studentCount} 
-          icon={<Users className="w-6 h-6 text-blue-400" />} 
-          bg="bg-blue-500/10" 
-        />
-        <StatsCard 
-          label="Total Teachers" 
-          value={teacherCount} 
-          icon={<UserCheck className="w-6 h-6 text-purple-400" />} 
-          bg="bg-purple-500/10" 
-        />
-        <StatsCard 
-          label="Teachers Present" 
-          value={attendanceSummary.present} 
-          sub="This Month"
-          icon={<UserCheck className="w-6 h-6 text-green-400" />} 
-          bg="bg-green-500/10" 
-        />
-        <StatsCard 
-          label="Teachers Absent" 
-          value={attendanceSummary.absent} 
-          sub="This Month"
-          icon={<UserX className="w-6 h-6 text-red-400" />} 
-          bg="bg-red-500/10" 
-        />
-      </div>
-
-      {/* --- SECTION 2: INVENTORY & FINANCE OVERVIEW --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Inventory Card */}
-        <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-semibold text-white flex items-center gap-2">
-              <Package className="w-5 h-5 text-orange-400" /> Inventory Status
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-             <MiniStat label="Uniform Stock" value={uniformStock} icon={<Shirt className="w-4 h-4" />} />
-             <MiniStat label="Notebook Stock" value={notebookStock} icon={<BookOpen className="w-4 h-4" />} />
-             <MiniStat label="Rev. Collected" value={`₹${inventoryCollected}`} color="text-green-400" />
-             <MiniStat label="Rev. Due" value={`₹${inventoryDue}`} color="text-red-400" />
-          </div>
+        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-full px-4 py-2 backdrop-blur-md">
+          <Calendar className="w-4 h-4 text-purple-400" />
+          <span className="text-sm text-zinc-300">
+            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </span>
         </div>
+      </div>
 
-        {/* Fees Graph (Wide) */}
-        <div className="lg:col-span-2 bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-teal-400" /> Fee Trends
-            </h3>
-            <select className="bg-slate-900 border border-slate-700 text-xs rounded px-2 py-1 text-slate-400">
-               <option>Last 6 Months</option>
-            </select>
-          </div>
+      {/* STATS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <GlassCard 
+          label="Total Students" value={counts.student} 
+          icon={<Users className="w-6 h-6 text-cyan-400" />} 
+          color="cyan"
+        />
+        <GlassCard 
+          label="Active Teachers" value={counts.teacher} 
+          icon={<UserCheck className="w-6 h-6 text-purple-400" />} 
+          color="purple"
+        />
+        <GlassCard 
+          label="Fee Collected" value="₹8.4M" 
+          icon={<Wallet className="w-6 h-6 text-emerald-400" />} 
+          color="emerald"
+        />
+        <GlassCard 
+          label="Inventory Stock" value="1,240" 
+          icon={<Package className="w-6 h-6 text-orange-400" />} 
+          color="orange"
+        />
+      </div>
+
+      {/* CHART SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* BIG GRAPH */}
+        <div className="lg:col-span-2 relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
           
-          <div className="h-[200px] w-full">
-            {feeGraphData.length > 0 ? (
+          <div className="relative bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 h-full">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Revenue Analytics</h3>
+                <p className="text-xs text-zinc-500">Income vs Pending Dues</p>
+              </div>
+            </div>
+
+            <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={feeGraphData} barSize={20}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val/1000}k`} />
+                <BarChart data={feeGraph} barSize={12} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  
+                  {/* 2. FIX: Use lowercase SVG tags directly here */}
+                  <defs>
+                    <linearGradient id="colorCollected" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorDue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f87171" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#f87171" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                  <XAxis dataKey="name" stroke="#525252" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#525252" fontSize={10} tickLine={false} axisLine={false} />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }}
-                    itemStyle={{ color: '#fff' }}
-                    cursor={{ fill: 'transparent' }}
+                    cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                    contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '8px' }}
+                    itemStyle={{ fontSize: '12px' }}
                   />
-                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
-                  <Bar dataKey="collected" name="Collected" fill="#2dd4bf" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="due" name="Due" fill="#f87171" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="collected" fill="url(#colorCollected)" radius={[4, 4, 0, 0]} animationDuration={1500} />
+                  <Bar dataKey="due" fill="url(#colorDue)" radius={[4, 4, 0, 0]} animationDuration={1500} />
                 </BarChart>
               </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-slate-500">No Data Available</div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* --- SECTION 3: MONTHLY FEE SNAPSHOT --- */}
-      <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div className="flex items-center gap-3">
-             <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><Wallet className="w-5 h-5" /></div>
-             <div>
-               <h3 className="font-semibold text-white">Monthly Fee Snapshot</h3>
-               <p className="text-xs text-slate-400">Overview for selected month</p>
-             </div>
+        {/* SIDE PANELS */}
+        <div className="space-y-6">
+          <div className="bg-gradient-to-br from-purple-900/40 to-black border border-white/10 p-6 rounded-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl"></div>
+            <h3 className="text-white font-bold text-lg mb-1">Fee Collection</h3>
+            <p className="text-purple-200/60 text-xs mb-6">Quickly record a new payment</p>
+            <button className="w-full bg-white text-black font-semibold py-3 rounded-xl hover:scale-105 transition transform flex items-center justify-center gap-2 text-sm">
+               Record Transaction <ArrowUpRight className="w-4 h-4" />
+            </button>
           </div>
-          
-          <input
-            type="month"
-            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          />
+
+          <div className="bg-[#0a0a0a]/60 backdrop-blur border border-white/10 p-5 rounded-2xl">
+            <h4 className="text-sm font-semibold text-zinc-300 mb-4">Recent Alerts</h4>
+            <div className="space-y-3">
+              {[1,2,3].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition cursor-pointer">
+                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                  <div className="flex-1">
+                    <p className="text-xs text-zinc-300">Inventory Low: Notebooks</p>
+                    <p className="text-[10px] text-zinc-600">2 mins ago</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           <FeeStatCard label="Total Expected" value={feeSummary.total} color="text-white" border="border-l-4 border-blue-500" />
-           <FeeStatCard label="Collected" value={feeSummary.collected} color="text-green-400" border="border-l-4 border-green-500" />
-           <FeeStatCard label="Outstanding Due" value={feeSummary.due} color="text-red-400" border="border-l-4 border-red-500" />
-        </div>
       </div>
-
     </div>
   );
 }
 
-/* --- SUB COMPONENTS --- */
+function GlassCard({ label, value, icon, color }: any) {
+  const glowColors: any = {
+    cyan: 'group-hover:shadow-[0_0_40px_-10px_rgba(34,211,238,0.3)] border-cyan-500/20',
+    purple: 'group-hover:shadow-[0_0_40px_-10px_rgba(168,85,247,0.3)] border-purple-500/20',
+    emerald: 'group-hover:shadow-[0_0_40px_-10px_rgba(52,211,153,0.3)] border-emerald-500/20',
+    orange: 'group-hover:shadow-[0_0_40px_-10px_rgba(251,146,60,0.3)] border-orange-500/20',
+  };
 
-function StatsCard({ label, value, icon, bg, sub }: any) {
   return (
-    <div className="bg-[#1e293b] p-5 rounded-xl border border-slate-800 hover:border-slate-700 transition shadow-sm group">
+    <div className={`
+      group relative bg-[#0a0a0a]/60 backdrop-blur-xl border border-white/5 
+      p-6 rounded-2xl transition-all duration-500 hover:-translate-y-1
+      ${glowColors[color]}
+    `}>
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">{label}</p>
-          <h3 className="text-2xl font-bold text-white mt-1 group-hover:scale-105 transition-transform origin-left">
-             {typeof value === 'number' ? value.toLocaleString() : value}
-          </h3>
-          {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+          <p className="text-zinc-500 text-xs font-medium uppercase tracking-widest mb-2">{label}</p>
+          <h3 className="text-3xl font-bold text-white tracking-tight">{typeof value === 'number' ? value.toLocaleString() : value}</h3>
         </div>
-        <div className={`p-3 rounded-lg ${bg}`}>{icon}</div>
+        <div className="p-3 rounded-xl bg-white/5 ring-1 ring-white/10 group-hover:bg-white/10 transition-colors">
+          {icon}
+        </div>
       </div>
-    </div>
-  );
-}
-
-function MiniStat({ label, value, icon, color = "text-white" }: any) {
-  return (
-    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-      <div className="flex items-center gap-2 mb-1 text-slate-400 text-xs">
-        {icon}
-        <span>{label}</span>
-      </div>
-      <p className={`font-bold text-lg ${color}`}>{value}</p>
-    </div>
-  );
-}
-
-function FeeStatCard({ label, value, color, border }: any) {
-  return (
-    <div className={`bg-slate-900/30 p-4 rounded-r-lg ${border} flex justify-between items-center`}>
-      <span className="text-slate-400 font-medium">{label}</span>
-      <span className={`text-xl font-bold font-mono ${color}`}>₹{value.toLocaleString()}</span>
     </div>
   );
 }

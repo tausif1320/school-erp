@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, QrCode, UserCircle, 
   TrendingUp, Wallet, Package, Shirt, BookOpen, 
-  Plus, ChevronDown, ChevronRight, Search, Bell, LogOut 
+  ChevronDown, ChevronRight, Search, Sun, Moon, LogOut, Menu
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -14,139 +14,115 @@ import toast from 'react-hot-toast';
 /* --- NAVIGATION CONFIG --- */
 const NAV_ITEMS = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
-  { name: 'Teacher', icon: Users, href: '/admin/teachers' }, // General teacher list
+  { name: 'Teachers', icon: Users, href: '/admin/teachers' },
   { name: 'QR Settings', icon: QrCode, href: '/admin/qr' },
-  { name: 'Profile', icon: UserCircle, href: '/admin/profile' },
-  { name: 'Promote Student', icon: TrendingUp, href: '/admin/promote' },
-  
-  // FEES (Radio Style Submenu)
-  {
-    name: 'Fees',
-    icon: Wallet,
-    href: '#',
-    submenu: [
-      { name: 'Collect Fees', href: '/admin/fees' },
-      { name: 'Classes', href: '/admin/fees/classes' },
-    ]
-  },
-
-  // INVENTORY (Deep Nesting)
-  {
-    name: 'Inventory',
-    icon: Package,
-    href: '#',
-    submenu: [
-      { 
-        name: 'Notebooks', 
-        icon: BookOpen,
-        subItems: [
-          { name: 'Issue Items', href: '/admin/inventory/notebooks/issues' },
-          { name: 'View Stock', href: '/admin/inventory/notebooks/stock' }
-        ]
-      },
-      { 
-        name: 'Uniforms', 
-        icon: Shirt,
-        subItems: [
-          { name: 'Issue Items', href: '/admin/inventory/uniforms/issues' },
-          { name: 'View Stock', href: '/admin/inventory/uniforms/stock' }
-        ]
-      }
-    ]
-  },
-
-  // STUDENTS
-  {
-    name: 'Students',
-    icon: Users,
-    href: '#',
-    submenu: [
-      { name: 'Student Profiles', href: '/admin/students' }, // "ID"
-    ]
-  },
-
-  // TEACHERS (Submenu)
-  {
-    name: 'Teachers Mgmt',
-    icon: Users,
-    href: '#',
-    submenu: [
-      { name: 'All Teachers', href: '/admin/teachers/[id]' },
-      { name: 'Add Teacher', href: '/admin/teachers/add' },
-    ]
-  }
+  { name: 'Fees', icon: Wallet, href: '#', submenu: [
+      { name: 'Collect Fees', href: '/admin/fees/collect' },
+      { name: 'Fee Classes', href: '/admin/fees/classes' },
+  ]},
+  { name: 'Inventory', icon: Package, href: '#', submenu: [
+      { name: 'Notebooks', icon: BookOpen, subItems: [
+          { name: 'Issue', href: '/admin/inv/notebooks/issue' },
+          { name: 'Stock', href: '/admin/inv/notebooks/stock' }
+      ]},
+      { name: 'Uniforms', icon: Shirt, subItems: [
+          { name: 'Issue', href: '/admin/inv/uniforms/issue' },
+          { name: 'Stock', href: '/admin/inv/uniforms/stock' }
+      ]}
+  ]},
+  { name: 'Students', icon: UserCircle, href: '/admin/students' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(true); // UI Toggle State
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white flex font-sans selection:bg-teal-500/30">
+    <div className={`min-h-screen font-sans selection:bg-purple-500/30 ${isDarkMode ? 'bg-black text-white' : 'bg-gray-100 text-gray-900'} transition-colors duration-500`}>
       
-      {/* SIDEBAR */}
-      <aside className={`fixed z-20 h-full border-r border-slate-800 bg-[#1e293b] transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'} overflow-y-auto custom-scrollbar`}>
-        
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-center border-b border-slate-700/50">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-teal-400 to-blue-500 flex items-center justify-center font-bold text-white">
-              E
-            </div>
-            {sidebarOpen && <span className="font-bold text-lg tracking-tight">EduDash</span>}
-          </div>
+      {/* --- GLOBAL BACKGROUND EFFECTS (Dark Mode Only) --- */}
+      {isDarkMode && (
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-purple-900/20 blur-[120px] animate-pulse-slow" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-blue-900/20 blur-[120px] animate-pulse-slow delay-1000" />
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
         </div>
+      )}
 
-        {/* User Mini Profile */}
-        <div className="p-4 border-b border-slate-700/50 mb-2">
-          <div className={`flex items-center gap-3 ${!sidebarOpen && 'justify-center'}`}>
-            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-teal-500/30">
-              <UserCircle className="w-full h-full text-slate-400" />
+      {/* SIDEBAR */}
+      <aside className={`
+        fixed z-30 h-full border-r transition-all duration-300 ease-out
+        ${sidebarOpen ? 'w-72' : 'w-20'}
+        ${isDarkMode ? 'border-white/10 bg-black/40 backdrop-blur-xl' : 'border-gray-200 bg-white'}
+      `}>
+        {/* Brand Logo */}
+        <div className="h-20 flex items-center justify-center border-b border-white/5 mx-4">
+          <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-blue-600 flex items-center justify-center shadow-lg shadow-purple-500/20 shrink-0">
+              <span className="font-bold text-white text-xl">A</span>
             </div>
-            {sidebarOpen && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Admin User</p>
-                <p className="text-xs text-slate-400 truncate">Administrator</p>
-              </div>
-            )}
+            <span className={`font-bold text-xl tracking-tight transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>
+              Project Aalu
+            </span>
           </div>
         </div>
 
         {/* Nav Links */}
-        <div className="p-3 space-y-1">
+        <div className="p-4 space-y-2 overflow-y-auto h-[calc(100vh-80px)] custom-scrollbar">
           {NAV_ITEMS.map((item, idx) => (
-            <SidebarItem key={idx} item={item} expanded={sidebarOpen} />
+            <SidebarItem key={idx} item={item} expanded={sidebarOpen} isDark={isDarkMode} />
           ))}
         </div>
       </aside>
 
       {/* MAIN CONTENT WRAPPER */}
-      <main className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
+      <main className={`relative z-10 flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'ml-72' : 'ml-20'}`}>
         
-        {/* TOP NAVBAR */}
-        <header className="h-16 bg-[#1e293b]/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-800 px-6 flex items-center justify-between">
-          {/* Search */}
-          <div className="relative w-64 md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search..." 
-              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-teal-500/50 transition-colors"
-            />
+        {/* GLASS HEADER */}
+        <header className={`
+          h-20 sticky top-0 z-20 px-8 flex items-center justify-between
+          border-b backdrop-blur-md transition-colors duration-300
+          ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-gray-200 bg-white/80'}
+        `}>
+          
+          {/* Left: Search & Toggle */}
+          <div className="flex items-center gap-6">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition">
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="relative hidden md:block group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-purple-400 transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Search anything..." 
+                className={`
+                  w-64 rounded-full py-2.5 pl-10 pr-4 text-sm outline-none border transition-all
+                  ${isDarkMode 
+                    ? 'bg-white/5 border-white/10 text-white focus:border-purple-500/50 focus:bg-white/10' 
+                    : 'bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-purple-100'}
+                `}
+              />
+            </div>
           </div>
 
-          {/* Right Actions */}
+          {/* Right: Actions */}
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-[#1e293b]"></span>
+            {/* Theme Toggle */}
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2.5 rounded-full border transition-all duration-300 ${isDarkMode ? 'border-white/10 bg-white/5 hover:bg-white/10 text-yellow-400' : 'border-gray-200 bg-gray-100 text-gray-600'}`}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <div className="w-px h-6 bg-slate-700"></div>
-            <LogoutButton />
+
+            <div className={`h-8 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
+            
+            <LogoutButton isDark={isDarkMode} />
           </div>
         </header>
 
-        {/* PAGE CONTENT INJECTION */}
-        <div className="p-6">
+        {/* PAGE CONTENT */}
+        <div className="p-8">
           {children}
         </div>
 
@@ -157,88 +133,78 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
 // --- SUB-COMPONENTS ---
 
-function SidebarItem({ item, expanded }: any) {
+function SidebarItem({ item, expanded, isDark }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const isActive = pathname === item.href;
   const hasSub = !!item.submenu;
 
-  // Toggle for parent menus
-  const handleClick = () => {
-    if (hasSub) setIsOpen(!isOpen);
-  };
-
   return (
-    <div className="mb-1">
+    <div>
       <Link 
         href={hasSub ? '#' : item.href} 
-        onClick={handleClick}
+        onClick={() => hasSub && setIsOpen(!isOpen)}
         className={`
-          group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer
-          ${isActive ? 'bg-teal-500/10 text-teal-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'}
+          group flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200
+          ${isActive 
+            ? 'bg-gradient-to-r from-purple-600/20 to-blue-600/10 border border-purple-500/30 text-white shadow-[0_0_20px_-5px_rgba(168,85,247,0.4)]' 
+            : isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}
         `}
       >
         <div className="flex items-center gap-3">
-          <item.icon className={`w-5 h-5 ${isActive ? 'text-teal-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-          {expanded && <span className="text-sm font-medium">{item.name}</span>}
+          <item.icon className={`w-5 h-5 transition-colors ${isActive ? 'text-purple-400' : 'group-hover:text-purple-400'}`} />
+          <span className={`font-medium text-sm transition-all duration-300 ${expanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+            {item.name}
+          </span>
         </div>
         {expanded && hasSub && (
-          isOpen ? <ChevronDown className="w-4 h-4 opacity-50" /> : <ChevronRight className="w-4 h-4 opacity-50" />
+          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180 text-white' : 'text-zinc-600'}`} />
         )}
       </Link>
 
-      {/* Level 1 Submenu */}
-      {expanded && hasSub && isOpen && (
-        <div className="mt-1 ml-4 pl-4 border-l border-slate-700 space-y-1">
-          {item.submenu.map((sub: any, idx: number) => (
-            sub.subItems ? (
-               // Level 2 Submenu (Deep Nesting for Inventory)
-               <NestedSidebarItem key={idx} item={sub} />
-            ) : (
-               // Standard Sub Item
-               <Link 
-                key={idx} 
-                href={sub.href}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:text-teal-400 rounded-md hover:bg-slate-800/50 transition"
-               >
-                 {/* Radio Dot Indicator */}
-                 <div className="w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-teal-400"></div>
-                 {sub.name}
-               </Link>
-            )
-          ))}
+      {/* Nested Menus */}
+      {expanded && hasSub && (
+        <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0'}`}>
+          <div className="overflow-hidden">
+            <div className={`ml-4 pl-4 border-l ${isDark ? 'border-white/10' : 'border-gray-200'} space-y-1`}>
+              {item.submenu.map((sub: any, idx: number) => (
+                sub.subItems ? (
+                  // Deep Nesting (Inventory)
+                  <NestedItem key={idx} item={sub} isDark={isDark} />
+                ) : (
+                  <Link 
+                    key={idx} href={sub.href}
+                    className={`block px-4 py-2.5 rounded-lg text-sm transition-colors ${isDark ? 'text-zinc-500 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50'}`}
+                  >
+                    {sub.name}
+                  </Link>
+                )
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function NestedSidebarItem({ item }: any) {
-  const [isOpen, setIsOpen] = useState(false);
-  
+function NestedItem({ item, isDark }: any) {
+  const [open, setOpen] = useState(false);
   return (
     <div>
       <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800/50 transition text-left"
+        onClick={() => setOpen(!open)}
+        className={`w-full flex items-center justify-between px-4 py-2 text-sm rounded-lg transition ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-600 hover:text-black'}`}
       >
-        <span className="flex items-center gap-2">
-          {item.icon && <item.icon className="w-4 h-4" />}
-          {item.name}
-        </span>
-        <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <span className="flex items-center gap-2">{item.icon && <item.icon className="w-4 h-4" />}{item.name}</span>
+        <ChevronRight className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
-
-      {isOpen && (
-        <div className="ml-3 pl-3 mt-1 border-l border-slate-700 space-y-1">
-          {item.subItems.map((sub: any, idx: number) => (
-            <Link 
-              key={idx} 
-              href={sub.href}
-              className="block px-3 py-1.5 text-xs text-slate-500 hover:text-teal-400 transition"
-            >
-              • {sub.name}
-            </Link>
+      {open && (
+        <div className="ml-4 mt-1 space-y-1 border-l border-white/10 pl-2">
+          {item.subItems.map((sub: any, i: number) => (
+             <Link key={i} href={sub.href} className={`block px-3 py-1.5 text-xs rounded transition ${isDark ? 'text-zinc-500 hover:text-purple-400' : 'text-gray-500'}`}>
+               {sub.name}
+             </Link>
           ))}
         </div>
       )}
@@ -246,18 +212,17 @@ function NestedSidebarItem({ item }: any) {
   );
 }
 
-function LogoutButton() {
+function LogoutButton({ isDark }: any) {
   const router = useRouter();
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    toast.success('Logged out');
+    toast.success('See you soon!');
     router.push('/');
   };
-
   return (
-    <button onClick={handleLogout} className="flex items-center gap-2 text-slate-400 hover:text-red-400 transition">
+    <button onClick={handleLogout} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${isDark ? 'hover:bg-red-500/10 text-zinc-400 hover:text-red-400' : 'hover:bg-red-50 text-gray-600 hover:text-red-600'}`}>
       <LogOut className="w-4 h-4" />
-      <span className="text-sm">Logout</span>
+      <span>Logout</span>
     </button>
   );
 }
