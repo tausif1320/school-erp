@@ -1,133 +1,66 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { 
   ArrowLeft, User, Mail, Phone, Briefcase, 
   Calendar, Users, MapPin, Save, Loader2, 
-  GraduationCap, Hash, FileText, ChevronDown,
-  ChevronLeft, ChevronRight
+  GraduationCap, Hash, FileText, ChevronDown
 } from 'lucide-react';
 
 /* =========================
-   HELPER: PREMIUM DATE PICKER (FIXED Z-INDEX)
+   HELPER: PREMIUM NATIVE DATE PICKER
+   (Uses browser native picker but styled dark)
 ========================= */
-function PremiumDatePicker({ label, value, onChange, required = false }: { label: string, value: string, onChange: (val: string) => void, required?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [pickerDate, setPickerDate] = useState(value ? new Date(value) : new Date());
-  const ref = useRef<any>(null);
-
-  useEffect(() => {
-    const clickOutside = (e: any) => { 
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false); 
-    };
-    document.addEventListener("mousedown", clickOutside);
-    return () => document.removeEventListener("mousedown", clickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (value) setPickerDate(new Date(value));
-  }, [value]);
-
-  const handleDateSelect = (day: number) => {
-    const newDate = new Date(pickerDate.getFullYear(), pickerDate.getMonth(), day);
-    const yyyy = newDate.getFullYear();
-    const mm = String(newDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(day).padStart(2, '0');
-    onChange(`${yyyy}-${mm}-${dd}`);
-    setOpen(false);
-  };
-
-  const changeMonth = (offset: number) => {
-    setPickerDate(new Date(pickerDate.getFullYear(), pickerDate.getMonth() + offset, 1));
-  };
-
-  const daysInMonth = new Date(pickerDate.getFullYear(), pickerDate.getMonth() + 1, 0).getDate();
-  const startDay = new Date(pickerDate.getFullYear(), pickerDate.getMonth(), 1).getDay();
-
+function PremiumDatePicker({ label, value, onChange, required = false }: { label: string, value: string, onChange: (e: any) => void, required?: boolean }) {
   return (
-    // FIX: Added dynamic z-index here. When open, it jumps to z-50 to sit above the next section.
-    <div className={`space-y-1.5 relative ${open ? 'z-50' : 'z-0'}`} ref={ref}>
+    <div className="space-y-1.5">
       <label className="text-xs text-zinc-400 font-bold ml-1 uppercase flex items-center gap-1">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       
-      <button 
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full bg-black/20 border border-white/10 rounded-xl py-2.5 pl-3 pr-4 text-sm text-left flex items-center justify-between hover:border-indigo-500 transition-all group"
-      >
-        <div className="flex items-center gap-3">
+      <div className="relative group">
+        {/* Icon Overlay */}
+        <div className="absolute left-3 top-2.5 pointer-events-none z-10">
           <Calendar className="w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
-          <span className={value ? "text-white font-medium" : "text-zinc-600"}>
-            {value || 'Select Date'}
-          </span>
         </div>
-        <ChevronDown className={`w-4 h-4 text-zinc-600 group-hover:text-white transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
 
-      {open && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-zinc-950 border border-white/10 rounded-xl shadow-2xl shadow-black ring-1 ring-white/10 p-4 animate-scale-up">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
-            <button type="button" onClick={() => changeMonth(-1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="font-bold text-white text-sm">
-              {pickerDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-            </span>
-            <button type="button" onClick={() => changeMonth(1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Days Grid */}
-          <div className="grid grid-cols-7 gap-1 text-center mb-2">
-            {['S','M','T','W','T','F','S'].map(d => (
-              <span key={d} className="text-[10px] text-zinc-500 font-bold">{d}</span>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: startDay }).map((_, i) => <div key={`empty-${i}`} />)}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const dayNum = i + 1;
-              const currentY = pickerDate.getFullYear();
-              const currentM = String(pickerDate.getMonth() + 1).padStart(2, '0');
-              const currentD = String(dayNum).padStart(2, '0');
-              const dateStr = `${currentY}-${currentM}-${currentD}`;
-              const isSelected = value === dateStr;
-
-              return (
-                <button 
-                  key={i} 
-                  type="button"
-                  onClick={() => handleDateSelect(dayNum)}
-                  className={`
-                    p-1.5 text-xs rounded-lg transition-all font-medium
-                    ${isSelected 
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
-                      : 'text-zinc-300 hover:bg-white/10 hover:text-white'}
-                  `}
-                >
-                  {dayNum}
-                </button>
-              );
-            })}
-          </div>
+        {/* Native Input with Dark Scheme 
+           [color-scheme:dark] ensures the popup calendar is dark mode 
+        */}
+        <input 
+          type="date"
+          required={required}
+          value={value}
+          onChange={onChange}
+          className="
+            w-full bg-black/20 border border-white/10 rounded-xl 
+            py-2.5 pl-10 pr-4 text-sm text-white 
+            focus:border-indigo-500 focus:bg-black/40 
+            outline-none transition-all font-medium
+            [color-scheme:dark] 
+            cursor-pointer
+            placeholder-zinc-600
+          "
+        />
+        
+        {/* Custom Chevron for visual consistency */}
+        <div className="absolute right-3 top-2.5 pointer-events-none">
+          <ChevronDown className="w-4 h-4 text-zinc-600 group-hover:text-white transition-colors" />
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 /* =========================
-   OTHER COMPONENTS (No changes needed, kept for context)
+   OTHER HELPER COMPONENTS
 ========================= */
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl relative z-0">
+    <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl">
       <div className="flex items-center gap-2.5 mb-6 border-b border-white/5 pb-4">
         <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">{icon}</div>
         <h2 className="text-sm font-bold uppercase tracking-wider text-white">{title}</h2>
@@ -163,7 +96,7 @@ function InputGroup({ label, icon, value, onChange, placeholder, type = 'text', 
 
 function SelectGroup({ label, icon, value, onChange, options, required = false }: any) {
   return (
-    <div className="space-y-1.5 relative">
+    <div className="space-y-1.5">
       <label className="text-xs text-zinc-400 font-bold ml-1 uppercase flex items-center gap-1">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
@@ -225,7 +158,7 @@ export default function AddStudentPage() {
     full_name: '',
     gender: 'Male',
     dob: '',
-    admission_date: '',
+    admission_date: new Date().toISOString().split('T')[0], // Default to today
     
     father_name: '',
     father_phone: '',
@@ -262,11 +195,12 @@ export default function AddStudentPage() {
         academic_year: form.academic_year,
         gender: form.gender,
         dob: form.dob || null,
-        admission_date: form.admission_date || new Date().toISOString().split('T')[0],
+        admission_date: form.admission_date,
         current_address: form.current_address,
         permanent_address: form.permanent_address,
         father_name: form.father_name,
         mother_name: form.mother_name,
+        // Add other mapped fields as per your schema
       });
 
       if (error) throw error;
@@ -285,7 +219,7 @@ export default function AddStudentPage() {
   return (
     <div className="animate-fade-in-up pb-20 md:pb-10 max-w-5xl mx-auto space-y-8">
       
-      {/* HEADER */}
+      {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button 
@@ -312,7 +246,7 @@ export default function AddStudentPage() {
 
       <div className="grid grid-cols-1 gap-6">
 
-        {/* SECTION 1 */}
+        {/* SECTION 1: PERSONAL INFO */}
         <Section title="Personal Information" icon={<User className="w-5 h-5" />}>
           <InputGroup label="Academic Year" required icon={<Calendar className="w-4 h-4" />} value={form.academic_year} onChange={(e: any) => setForm({ ...form, academic_year: e.target.value })} placeholder="e.g. 2025-2026" />
           <InputGroup label="Admission Number" required icon={<FileText className="w-4 h-4" />} value={form.admission_number} onChange={(e: any) => setForm({ ...form, admission_number: e.target.value })} placeholder="e.g. 2025001" />
@@ -322,11 +256,18 @@ export default function AddStudentPage() {
           <InputGroup label="Roll Number" icon={<Hash className="w-4 h-4" />} value={form.roll_number} onChange={(e: any) => setForm({ ...form, roll_number: e.target.value })} placeholder="Optional" />
           <SelectGroup label="Gender" icon={<User className="w-4 h-4" />} value={form.gender} onChange={(e: any) => setForm({ ...form, gender: e.target.value })} options={[{value: 'Male', label: 'Male'}, {value: 'Female', label: 'Female'}, {value: 'Other', label: 'Other'}]} />
           
-          <PremiumDatePicker label="Date of Birth" required value={form.dob} onChange={(val) => setForm({ ...form, dob: val })} />
-          <PremiumDatePicker label="Admission Date" value={form.admission_date} onChange={(val) => setForm({ ...form, admission_date: val })} />
+          {/* NATIVE PICKERS (Solves Z-Index & UX Issues) */}
+          <PremiumDatePicker 
+            label="Date of Birth" required
+            value={form.dob} onChange={(e: any) => setForm({ ...form, dob: e.target.value })} 
+          />
+          <PremiumDatePicker 
+            label="Admission Date" required
+            value={form.admission_date} onChange={(e: any) => setForm({ ...form, admission_date: e.target.value })} 
+          />
         </Section>
 
-        {/* SECTION 2 */}
+        {/* SECTION 2: PARENTS INFO */}
         <Section title="Parents Information" icon={<Users className="w-5 h-5" />}>
            <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-black/20 rounded-2xl border border-white/5">
               <h3 className="md:col-span-3 text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Father's Details</h3>
@@ -342,7 +283,7 @@ export default function AddStudentPage() {
            </div>
         </Section>
 
-        {/* SECTION 3 */}
+        {/* SECTION 3: GUARDIAN INFO */}
         <Section title="Guardian Information" icon={<User className="w-5 h-5" />}>
            <SelectGroup label="Select Guardian" icon={<Users className="w-4 h-4" />} value={form.guardian_relation} onChange={(e: any) => setForm({ ...form, guardian_relation: e.target.value })} options={[{value: 'Father', label: 'Father'}, {value: 'Mother', label: 'Mother'}, {value: 'Other', label: 'Other'}]} />
            <InputGroup label="Guardian Name" icon={<User className="w-4 h-4" />} value={form.guardian_name} onChange={(e: any) => setForm({ ...form, guardian_name: e.target.value })} placeholder="Name" />
@@ -351,7 +292,7 @@ export default function AddStudentPage() {
            <InputGroup label="Occupation" icon={<Briefcase className="w-4 h-4" />} value={form.guardian_occupation} onChange={(e: any) => setForm({ ...form, guardian_occupation: e.target.value })} placeholder="Job" className="md:col-span-2" />
         </Section>
 
-        {/* SECTION 4 */}
+        {/* SECTION 4: ADDRESS */}
         <Section title="Address Details" icon={<MapPin className="w-5 h-5" />}>
           <TextareaGroup label="Current Address" icon={<MapPin className="w-4 h-4" />} value={form.current_address} onChange={(e: any) => setForm({ ...form, current_address: e.target.value })} placeholder="Enter full current address..." />
           <TextareaGroup label="Permanent Address" icon={<MapPin className="w-4 h-4" />} value={form.permanent_address} onChange={(e: any) => setForm({ ...form, permanent_address: e.target.value })} placeholder="Enter full permanent address..." />
