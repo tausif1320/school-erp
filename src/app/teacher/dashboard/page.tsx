@@ -190,42 +190,37 @@ export default function TeacherDashboard() {
           {activeTab === 'overview' && (
             <div className="p-6 space-y-8 animate-fade-in">
               {/* Today's Status Box */}
-              <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-white/20 transition-all">
+              <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/10 rounded-2xl p-8 relative overflow-hidden group hover:border-white/20 transition-all">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                <div className="relative z-10">
-                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4">Today's Status</h3>
-                  <div className="flex items-center gap-4">
-                    <div className={`p-4 rounded-2xl ${todayRecord ? (todayRecord.raw_check_out ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400') : 'bg-zinc-800 text-zinc-500'}`}>
-                      {todayRecord ? (todayRecord.raw_check_out ? <CheckCircle className="w-8 h-8" /> : <Clock className="w-8 h-8 animate-pulse" />) : <XCircle className="w-8 h-8" />}
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-white">
-                        {todayRecord ? (todayRecord.raw_check_out ? 'Shift Completed' : 'Checked In') : 'Not Checked In'}
-                      </p>
-                      <p className="text-zinc-500 text-sm mt-1 font-mono">
-                        {todayRecord 
-                          ? `IN: ${todayRecord.check_in_ist || '--:--'} • OUT: ${todayRecord.check_out_ist || '--:--'}`
-                          : 'Please scan your QR code at the entrance.'}
-                      </p>
+                <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                  
+                  {/* Status Circle */}
+                  <div className={`
+                    p-6 rounded-3xl flex items-center justify-center shadow-2xl
+                    ${todayRecord 
+                      ? (todayRecord.raw_check_out 
+                        ? 'bg-emerald-500/10 text-emerald-400 shadow-emerald-500/10' 
+                        : 'bg-amber-500/10 text-amber-400 shadow-amber-500/10') 
+                      : 'bg-zinc-800 text-zinc-500 shadow-black/50'}
+                  `}>
+                    {todayRecord ? (todayRecord.raw_check_out ? <CheckCircle className="w-12 h-12" /> : <Clock className="w-12 h-12 animate-pulse" />) : <XCircle className="w-12 h-12" />}
+                  </div>
+
+                  {/* Text Details */}
+                  <div className="text-center md:text-left">
+                    <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-2">Today's Status</h3>
+                    <p className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
+                      {todayRecord ? (todayRecord.raw_check_out ? 'Shift Completed' : 'Checked In') : 'Not Checked In'}
+                    </p>
+                    <div className="inline-flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
+                       <Clock className="w-4 h-4 text-zinc-400" />
+                       <span className="text-zinc-300 font-mono text-sm">
+                         {todayRecord 
+                           ? `IN: ${todayRecord.check_in_ist || '--:--'}  •  OUT: ${todayRecord.check_out_ist || '--:--'}`
+                           : 'Waiting for check-in...'}
+                       </span>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Activity Graph */}
-              <div>
-                <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4">Activity Visualization</h3>
-                <div className="flex flex-wrap gap-2">
-                  {history.map((rec, i) => (
-                    <div 
-                      key={i} 
-                      className={`w-3 h-10 rounded-sm transition-all hover:scale-110 cursor-help ${
-                        rec.status === 'present' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-red-500/20'
-                      }`}
-                      title={`${rec.date}: ${rec.status}`}
-                    />
-                  ))}
-                  {history.length === 0 && <p className="text-zinc-600 text-sm italic">No data available for {selectedMonth}.</p>}
                 </div>
               </div>
             </div>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
+import { QrCode, MapPin, Camera, AlertCircle, CheckCircle2, ScanLine } from 'lucide-react';
 
 /* =========================
    IST HELPER (Inline)
@@ -35,9 +36,13 @@ function distanceMeters(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/* =========================
+   COMPONENT
+========================= */
 export default function TeacherScanPage() {
   const scannedRef = useRef(false);
   const scannerRef = useRef<any>(null);
+  const [cameraActive, setCameraActive] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -49,7 +54,12 @@ export default function TeacherScanPage() {
 
       const scanner = new Html5QrcodeScanner(
         'reader',
-        { fps: 10, qrbox: 250 },
+        { 
+          fps: 10, 
+          qrbox: 280,
+          aspectRatio: 1.0,
+          showTorchButtonIfSupported: true 
+        },
         false
       );
 
@@ -63,6 +73,9 @@ export default function TeacherScanPage() {
 
           try {
             await scanner.clear(); // Stop camera immediately
+            setCameraActive(false);
+
+            toast.loading('Verifying location...', { id: 'verify' });
 
             navigator.geolocation.getCurrentPosition(
               async (pos) => {
@@ -71,8 +84,8 @@ export default function TeacherScanPage() {
                   
                   // 1. Validate Format
                   if (parts.length !== 6) {
-                    toast.error('Invalid QR Format');
-                    scannedRef.current = false; // Allow retry
+                    toast.error('Invalid QR Format', { id: 'verify' });
+                    setTimeout(() => window.location.reload(), 2000); 
                     return;
                   }
 
@@ -90,15 +103,15 @@ export default function TeacherScanPage() {
                   }
 
                   if (qrDate !== today) {
-                    toast.error('QR Code Expired (Old Date)');
-                    scannedRef.current = false;
+                    toast.error('QR Code Expired (Old Date)', { id: 'verify' });
+                    setTimeout(() => window.location.reload(), 2000);
                     return;
                   }
 
                   // 3. Validate Signature
                   const secret = process.env.NEXT_PUBLIC_QR_SECRET;
                   if (!secret) {
-                    toast.error('System Error: Missing Secret Key');
+                    toast.error('System Error: Missing Secret Key', { id: 'verify' });
                     return;
                   }
 
@@ -107,8 +120,8 @@ export default function TeacherScanPage() {
                   );
 
                   if (sig !== expected) {
-                    toast.error('Fake QR Detected');
-                    scannedRef.current = false;
+                    toast.error('Fake QR Detected', { id: 'verify' });
+                    setTimeout(() => window.location.reload(), 2000);
                     return;
                   }
 
@@ -121,15 +134,15 @@ export default function TeacherScanPage() {
                   );
 
                   if (dist > Number(qRad)) {
-                    toast.error(`Too far! You are ${Math.round(dist)}m away.`);
-                    scannedRef.current = false;
+                    toast.error(`Too far! You are ${Math.round(dist)}m away.`, { id: 'verify' });
+                    setTimeout(() => window.location.reload(), 2000);
                     return;
                   }
 
                   // 5. Authenticate User
                   const { data: auth } = await supabase.auth.getUser();
                   if (!auth.user) {
-                    toast.error('Please login first');
+                    toast.error('Please login first', { id: 'verify' });
                     return;
                   }
 
@@ -140,7 +153,7 @@ export default function TeacherScanPage() {
                     .single();
 
                   if (!teacher) {
-                    toast.error('Teacher profile not found');
+                    toast.error('Teacher profile not found', { id: 'verify' });
                     return;
                   }
 
@@ -150,7 +163,7 @@ export default function TeacherScanPage() {
                     .select('*')
                     .eq('teacher_id', teacher.id)
                     .eq('date', today)
-                    .maybeSingle(); // Use maybeSingle to avoid errors if null
+                    .maybeSingle(); 
 
                   const nowUTC = new Date().toISOString();
 
@@ -163,7 +176,7 @@ export default function TeacherScanPage() {
                       status: 'present',
                     });
                     if (error) throw error;
-                    toast.success('✅ Checked IN Successfully!');
+                    toast.success('✅ Checked IN Successfully!', { id: 'verify' });
                   } else if (!existing.check_out) {
                     // Check Out
                     const { error } = await supabase
@@ -171,22 +184,22 @@ export default function TeacherScanPage() {
                       .update({ check_out: nowUTC })
                       .eq('id', existing.id);
                     if (error) throw error;
-                    toast.success('👋 Checked OUT Successfully!');
+                    toast.success('👋 Checked OUT Successfully!', { id: 'verify' });
                   } else {
-                    toast('Attendance already completed for today.');
+                    toast('Attendance already completed today.', { id: 'verify' });
                   }
                   
-                  // Redirect or refresh after success (Optional)
-                  // window.location.href = '/teacher/dashboard';
+                  // Optional: Redirect
+                  setTimeout(() => window.location.href = '/teacher/dashboard', 1500);
 
                 } catch (err) {
                   console.error(err);
-                  toast.error('Attendance failed. Try again.');
-                  scannedRef.current = false;
+                  toast.error('Attendance failed. Try again.', { id: 'verify' });
+                  setTimeout(() => window.location.reload(), 2000);
                 }
               },
               (err) => {
-                 toast.error('Location permission denied');
+                 toast.error('Location permission denied', { id: 'verify' });
                  scannedRef.current = false;
               },
               { enableHighAccuracy: true }
@@ -213,10 +226,95 @@ export default function TeacherScanPage() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center mt-10 space-y-4">
-      <h1 className="text-xl font-bold">Scan Attendance QR</h1>
-      <div id="reader" className="w-[320px] bg-black rounded-lg overflow-hidden" />
-      <p className="text-sm text-gray-500">Allow Camera & Location access</p>
+    <div className="min-h-[85vh] flex flex-col items-center justify-center p-4 animate-fade-in-up">
+      
+      {/* SCANNER CARD */}
+      <div className="w-full max-w-md bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl shadow-2xl overflow-hidden relative">
+        
+        {/* Header */}
+        <div className="p-6 text-center border-b border-white/5 bg-white/5">
+          <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 mb-3 shadow-lg shadow-indigo-500/10">
+            <QrCode className="w-8 h-8" />
+          </div>
+          <h1 className="text-xl font-bold text-white tracking-tight">Attendance Scanner</h1>
+          <p className="text-zinc-400 text-sm mt-1">Align the campus QR code within the frame</p>
+        </div>
+
+        {/* Camera Area */}
+        <div className="relative bg-black min-h-[350px] flex items-center justify-center">
+          {!cameraActive && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-900/90 backdrop-blur-sm text-center p-6 space-y-3">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 animate-bounce" />
+              <h3 className="text-lg font-bold text-white">Scan Complete</h3>
+              <p className="text-zinc-400 text-sm">Processing your attendance...</p>
+            </div>
+          )}
+          
+          {/* The Scanner Library Mount Point */}
+          <div id="reader" className="w-full h-full [&_video]:object-cover [&_div]:!border-none" />
+          
+          {/* Custom Overlay (Visual Only) */}
+          {cameraActive && (
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+              <div className="w-64 h-64 border-2 border-indigo-500/50 rounded-3xl relative">
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-indigo-500 -mt-1 -ml-1 rounded-tl-xl"></div>
+                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-indigo-500 -mt-1 -mr-1 rounded-tr-xl"></div>
+                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-indigo-500 -mb-1 -ml-1 rounded-bl-xl"></div>
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-indigo-500 -mb-1 -mr-1 rounded-br-xl"></div>
+                
+                {/* Scanning Animation Line */}
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-indigo-400/80 shadow-[0_0_15px_rgba(99,102,241,0.8)] animate-scan"></div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Status */}
+        <div className="p-4 bg-zinc-950/50 border-t border-white/5">
+          <div className="flex items-center justify-center gap-6 text-xs font-medium text-zinc-500">
+            <div className="flex items-center gap-1.5">
+              <Camera className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Camera Active</span>
+            </div>
+            <div className="w-px h-3 bg-white/10"></div>
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Locating...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Helper Text */}
+      <div className="mt-6 flex items-start gap-3 max-w-sm px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/10 text-amber-500/80 text-xs">
+        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+        <p>Ensure you are within the school premises and have allowed location access to mark attendance successfully.</p>
+      </div>
+
+      {/* Global CSS for Scanner Customization */}
+      <style jsx global>{`
+        #reader { border: none !important; }
+        #reader__scan_region { display: none !important; }
+        #reader__dashboard_section_csr button { 
+          color: white; 
+          background: rgba(255,255,255,0.1); 
+          border: 1px solid rgba(255,255,255,0.2); 
+          padding: 6px 12px; 
+          border-radius: 8px; 
+          margin-top: 10px;
+          font-size: 12px;
+        }
+        #reader__dashboard_section_swaplink { display: none !important; }
+        @keyframes scan {
+          0% { top: 10%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 90%; opacity: 0; }
+        }
+        .animate-scan {
+          animation: scan 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+      `}</style>
     </div>
   );
 }

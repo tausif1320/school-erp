@@ -181,7 +181,7 @@ function LogoutButton() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast.success('Signed out securely');
-    router.replace('/auth/login');
+    router.replace('/');
   };
   return (
     <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-white/5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 border border-white/5 transition-all">
