@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { 
   Search, Download, FileText, Table as TableIcon, ChevronDown, 
-  Loader2, Eye, Ban, Check, Trash2, User, BookOpen, Phone, Calendar,
+  Loader2, Ban, Check, Trash2, User, BookOpen, Phone, Calendar,
   MoreHorizontal, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -245,11 +245,6 @@ export default function TeacherListPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link href={`/admin/teachers/${t.id}`}>
-                             <button className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all" title="View Profile">
-                               <Eye className="w-4 h-4" />
-                             </button>
-                           </Link>
                           <button 
                             onClick={() => toggleStatus(t.id, t.status)} 
                             className={`p-2 rounded-lg transition-all ${t.status === 'active' ? 'text-amber-400 hover:bg-amber-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'}`} 
