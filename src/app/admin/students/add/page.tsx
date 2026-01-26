@@ -12,15 +12,13 @@ import {
 } from 'lucide-react';
 
 /* =========================
-   HELPER: PREMIUM DATE PICKER (FIXED VISIBILITY)
+   HELPER: PREMIUM DATE PICKER (FIXED Z-INDEX)
 ========================= */
 function PremiumDatePicker({ label, value, onChange, required = false }: { label: string, value: string, onChange: (val: string) => void, required?: boolean }) {
   const [open, setOpen] = useState(false);
-  // Initialize view date from value or today
   const [pickerDate, setPickerDate] = useState(value ? new Date(value) : new Date());
   const ref = useRef<any>(null);
 
-  // Close on click outside
   useEffect(() => {
     const clickOutside = (e: any) => { 
       if (ref.current && !ref.current.contains(e.target)) setOpen(false); 
@@ -29,18 +27,15 @@ function PremiumDatePicker({ label, value, onChange, required = false }: { label
     return () => document.removeEventListener("mousedown", clickOutside);
   }, []);
 
-  // Update picker view if external value changes
   useEffect(() => {
     if (value) setPickerDate(new Date(value));
   }, [value]);
 
   const handleDateSelect = (day: number) => {
     const newDate = new Date(pickerDate.getFullYear(), pickerDate.getMonth(), day);
-    // Format YYYY-MM-DD manually to avoid timezone shifts
     const yyyy = newDate.getFullYear();
     const mm = String(newDate.getMonth() + 1).padStart(2, '0');
     const dd = String(day).padStart(2, '0');
-    
     onChange(`${yyyy}-${mm}-${dd}`);
     setOpen(false);
   };
@@ -53,7 +48,8 @@ function PremiumDatePicker({ label, value, onChange, required = false }: { label
   const startDay = new Date(pickerDate.getFullYear(), pickerDate.getMonth(), 1).getDay();
 
   return (
-    <div className="space-y-1.5 relative" ref={ref}>
+    // FIX: Added dynamic z-index here. When open, it jumps to z-50 to sit above the next section.
+    <div className={`space-y-1.5 relative ${open ? 'z-50' : 'z-0'}`} ref={ref}>
       <label className="text-xs text-zinc-400 font-bold ml-1 uppercase flex items-center gap-1">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
@@ -69,14 +65,11 @@ function PremiumDatePicker({ label, value, onChange, required = false }: { label
             {value || 'Select Date'}
           </span>
         </div>
-        <ChevronDown className="w-4 h-4 text-zinc-600 group-hover:text-white transition-colors" />
+        <ChevronDown className={`w-4 h-4 text-zinc-600 group-hover:text-white transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* FIX: Removed backdrop-blur transparency issues. 
-         Using bg-zinc-950 (Solid Dark) + High Z-Index 
-      */}
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-zinc-950 border border-white/10 rounded-xl shadow-2xl shadow-black z-[999] p-4 animate-scale-up">
+        <div className="absolute top-full left-0 mt-2 w-72 bg-zinc-950 border border-white/10 rounded-xl shadow-2xl shadow-black ring-1 ring-white/10 p-4 animate-scale-up">
           {/* Header */}
           <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
             <button type="button" onClick={() => changeMonth(-1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
@@ -130,11 +123,11 @@ function PremiumDatePicker({ label, value, onChange, required = false }: { label
 }
 
 /* =========================
-   OTHER HELPER COMPONENTS
+   OTHER COMPONENTS (No changes needed, kept for context)
 ========================= */
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl">
+    <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl relative z-0">
       <div className="flex items-center gap-2.5 mb-6 border-b border-white/5 pb-4">
         <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">{icon}</div>
         <h2 className="text-sm font-bold uppercase tracking-wider text-white">{title}</h2>
@@ -170,7 +163,7 @@ function InputGroup({ label, icon, value, onChange, placeholder, type = 'text', 
 
 function SelectGroup({ label, icon, value, onChange, options, required = false }: any) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 relative">
       <label className="text-xs text-zinc-400 font-bold ml-1 uppercase flex items-center gap-1">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
@@ -224,7 +217,6 @@ export default function AddStudentPage() {
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    // Personal
     academic_year: '',
     class: '',
     section: '',
@@ -235,7 +227,6 @@ export default function AddStudentPage() {
     dob: '',
     admission_date: '',
     
-    // Parents
     father_name: '',
     father_phone: '',
     father_occupation: '',
@@ -243,14 +234,12 @@ export default function AddStudentPage() {
     mother_phone: '',
     mother_occupation: '',
 
-    // Guardian
     guardian_relation: 'Father',
     guardian_name: '',
     guardian_email: '',
     guardian_phone: '',
     guardian_occupation: '',
 
-    // Address
     current_address: '',
     permanent_address: '',
   });
@@ -276,12 +265,8 @@ export default function AddStudentPage() {
         admission_date: form.admission_date || new Date().toISOString().split('T')[0],
         current_address: form.current_address,
         permanent_address: form.permanent_address,
-        
-        // Parent Data (Assuming you store this in 'students' or related table)
-        // If stored in 'students':
         father_name: form.father_name,
         mother_name: form.mother_name,
-        // ... map other fields accordingly
       });
 
       if (error) throw error;
@@ -300,7 +285,7 @@ export default function AddStudentPage() {
   return (
     <div className="animate-fade-in-up pb-20 md:pb-10 max-w-5xl mx-auto space-y-8">
       
-      {/* --- HEADER --- */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button 
@@ -327,60 +312,28 @@ export default function AddStudentPage() {
 
       <div className="grid grid-cols-1 gap-6">
 
-        {/* SECTION 1: PERSONAL INFO */}
+        {/* SECTION 1 */}
         <Section title="Personal Information" icon={<User className="w-5 h-5" />}>
-          <InputGroup 
-            label="Academic Year" required icon={<Calendar className="w-4 h-4" />} 
-            value={form.academic_year} onChange={(e: any) => setForm({ ...form, academic_year: e.target.value })} placeholder="e.g. 2025-2026"
-          />
-          <InputGroup 
-            label="Admission Number" required icon={<FileText className="w-4 h-4" />} 
-            value={form.admission_number} onChange={(e: any) => setForm({ ...form, admission_number: e.target.value })} placeholder="e.g. 2025001"
-          />
-          <InputGroup 
-            label="Class" required icon={<GraduationCap className="w-4 h-4" />} 
-            value={form.class} onChange={(e: any) => setForm({ ...form, class: e.target.value })} placeholder="10"
-          />
-          <InputGroup 
-            label="Section" icon={<Users className="w-4 h-4" />} 
-            value={form.section} onChange={(e: any) => setForm({ ...form, section: e.target.value })} placeholder="A"
-          />
-          <InputGroup 
-            label="Full Name" required icon={<User className="w-4 h-4" />} 
-            value={form.full_name} onChange={(e: any) => setForm({ ...form, full_name: e.target.value })} placeholder="Student Name"
-          />
-          <InputGroup 
-            label="Roll Number" icon={<Hash className="w-4 h-4" />} 
-            value={form.roll_number} onChange={(e: any) => setForm({ ...form, roll_number: e.target.value })} placeholder="Optional"
-          />
-          <SelectGroup 
-            label="Gender" icon={<User className="w-4 h-4" />} 
-            value={form.gender} onChange={(e: any) => setForm({ ...form, gender: e.target.value })}
-            options={[{value: 'Male', label: 'Male'}, {value: 'Female', label: 'Female'}, {value: 'Other', label: 'Other'}]}
-          />
+          <InputGroup label="Academic Year" required icon={<Calendar className="w-4 h-4" />} value={form.academic_year} onChange={(e: any) => setForm({ ...form, academic_year: e.target.value })} placeholder="e.g. 2025-2026" />
+          <InputGroup label="Admission Number" required icon={<FileText className="w-4 h-4" />} value={form.admission_number} onChange={(e: any) => setForm({ ...form, admission_number: e.target.value })} placeholder="e.g. 2025001" />
+          <InputGroup label="Class" required icon={<GraduationCap className="w-4 h-4" />} value={form.class} onChange={(e: any) => setForm({ ...form, class: e.target.value })} placeholder="10" />
+          <InputGroup label="Section" icon={<Users className="w-4 h-4" />} value={form.section} onChange={(e: any) => setForm({ ...form, section: e.target.value })} placeholder="A" />
+          <InputGroup label="Full Name" required icon={<User className="w-4 h-4" />} value={form.full_name} onChange={(e: any) => setForm({ ...form, full_name: e.target.value })} placeholder="Student Name" />
+          <InputGroup label="Roll Number" icon={<Hash className="w-4 h-4" />} value={form.roll_number} onChange={(e: any) => setForm({ ...form, roll_number: e.target.value })} placeholder="Optional" />
+          <SelectGroup label="Gender" icon={<User className="w-4 h-4" />} value={form.gender} onChange={(e: any) => setForm({ ...form, gender: e.target.value })} options={[{value: 'Male', label: 'Male'}, {value: 'Female', label: 'Female'}, {value: 'Other', label: 'Other'}]} />
           
-          {/* Custom Date Pickers */}
-          <PremiumDatePicker 
-            label="Date of Birth" required
-            value={form.dob} onChange={(val) => setForm({ ...form, dob: val })} 
-          />
-          <PremiumDatePicker 
-            label="Admission Date" 
-            value={form.admission_date} onChange={(val) => setForm({ ...form, admission_date: val })} 
-          />
+          <PremiumDatePicker label="Date of Birth" required value={form.dob} onChange={(val) => setForm({ ...form, dob: val })} />
+          <PremiumDatePicker label="Admission Date" value={form.admission_date} onChange={(val) => setForm({ ...form, admission_date: val })} />
         </Section>
 
-        {/* SECTION 2: PARENTS INFO */}
+        {/* SECTION 2 */}
         <Section title="Parents Information" icon={<Users className="w-5 h-5" />}>
-           {/* Father */}
            <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-black/20 rounded-2xl border border-white/5">
               <h3 className="md:col-span-3 text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Father's Details</h3>
               <InputGroup label="Name" icon={<User className="w-4 h-4" />} value={form.father_name} onChange={(e: any) => setForm({ ...form, father_name: e.target.value })} placeholder="Father's Name" />
               <InputGroup label="Phone" icon={<Phone className="w-4 h-4" />} value={form.father_phone} onChange={(e: any) => setForm({ ...form, father_phone: e.target.value })} placeholder="Phone" />
               <InputGroup label="Occupation" icon={<Briefcase className="w-4 h-4" />} value={form.father_occupation} onChange={(e: any) => setForm({ ...form, father_occupation: e.target.value })} placeholder="Job" />
            </div>
-
-           {/* Mother */}
            <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-black/20 rounded-2xl border border-white/5">
               <h3 className="md:col-span-3 text-xs font-bold text-pink-400 uppercase tracking-wider mb-2">Mother's Details</h3>
               <InputGroup label="Name" icon={<User className="w-4 h-4" />} value={form.mother_name} onChange={(e: any) => setForm({ ...form, mother_name: e.target.value })} placeholder="Mother's Name" />
@@ -389,29 +342,19 @@ export default function AddStudentPage() {
            </div>
         </Section>
 
-        {/* SECTION 3: GUARDIAN INFO */}
+        {/* SECTION 3 */}
         <Section title="Guardian Information" icon={<User className="w-5 h-5" />}>
-           <SelectGroup 
-             label="Select Guardian" icon={<Users className="w-4 h-4" />} 
-             value={form.guardian_relation} onChange={(e: any) => setForm({ ...form, guardian_relation: e.target.value })}
-             options={[{value: 'Father', label: 'Father'}, {value: 'Mother', label: 'Mother'}, {value: 'Other', label: 'Other'}]}
-           />
+           <SelectGroup label="Select Guardian" icon={<Users className="w-4 h-4" />} value={form.guardian_relation} onChange={(e: any) => setForm({ ...form, guardian_relation: e.target.value })} options={[{value: 'Father', label: 'Father'}, {value: 'Mother', label: 'Mother'}, {value: 'Other', label: 'Other'}]} />
            <InputGroup label="Guardian Name" icon={<User className="w-4 h-4" />} value={form.guardian_name} onChange={(e: any) => setForm({ ...form, guardian_name: e.target.value })} placeholder="Name" />
            <InputGroup label="Guardian Email" icon={<Mail className="w-4 h-4" />} value={form.guardian_email} onChange={(e: any) => setForm({ ...form, guardian_email: e.target.value })} placeholder="Email" />
            <InputGroup label="Guardian Phone" icon={<Phone className="w-4 h-4" />} value={form.guardian_phone} onChange={(e: any) => setForm({ ...form, guardian_phone: e.target.value })} placeholder="Phone" />
            <InputGroup label="Occupation" icon={<Briefcase className="w-4 h-4" />} value={form.guardian_occupation} onChange={(e: any) => setForm({ ...form, guardian_occupation: e.target.value })} placeholder="Job" className="md:col-span-2" />
         </Section>
 
-        {/* SECTION 4: ADDRESS */}
+        {/* SECTION 4 */}
         <Section title="Address Details" icon={<MapPin className="w-5 h-5" />}>
-          <TextareaGroup 
-            label="Current Address" icon={<MapPin className="w-4 h-4" />}
-            value={form.current_address} onChange={(e: any) => setForm({ ...form, current_address: e.target.value })} placeholder="Enter full current address..."
-          />
-          <TextareaGroup 
-            label="Permanent Address" icon={<MapPin className="w-4 h-4" />}
-            value={form.permanent_address} onChange={(e: any) => setForm({ ...form, permanent_address: e.target.value })} placeholder="Enter full permanent address..."
-          />
+          <TextareaGroup label="Current Address" icon={<MapPin className="w-4 h-4" />} value={form.current_address} onChange={(e: any) => setForm({ ...form, current_address: e.target.value })} placeholder="Enter full current address..." />
+          <TextareaGroup label="Permanent Address" icon={<MapPin className="w-4 h-4" />} value={form.permanent_address} onChange={(e: any) => setForm({ ...form, permanent_address: e.target.value })} placeholder="Enter full permanent address..." />
         </Section>
 
       </div>
