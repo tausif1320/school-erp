@@ -36,7 +36,6 @@ export default function TeacherDetailsPage() {
   const router = useRouter();
   const params = useParams();
   
-  // Logic Intact: Handle array or string param
   const teacherId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [teacher, setTeacher] = useState<Teacher | null>(null);
@@ -60,9 +59,10 @@ export default function TeacherDetailsPage() {
   }
 
   async function loadAttendance(id: string) {
+    // UPDATED: Query the 'view_teacher_attendance_ist' to get formatted times
     const { data, error } = await supabase
-      .from('teacher_attendance')
-      .select('*')
+      .from('view_teacher_attendance_ist')
+      .select('date, status, check_in_ist, check_out_ist')
       .eq('teacher_id', id)
       .order('date', { ascending: false });
 
@@ -70,7 +70,16 @@ export default function TeacherDetailsPage() {
       toast.error('Failed to load attendance');
       return;
     }
-    setAttendance(data ?? []);
+
+    // Map the view columns (check_in_ist) to our component state (check_in)
+    const formattedData = data?.map((item: any) => ({
+      date: item.date,
+      status: item.status,
+      check_in: item.check_in_ist,   // Using the IST string from the View
+      check_out: item.check_out_ist  // Using the IST string from the View
+    })) || [];
+
+    setAttendance(formattedData);
   }
 
   useEffect(() => {
@@ -107,7 +116,6 @@ export default function TeacherDetailsPage() {
       
       {/* --- HERO PROFILE HEADER --- */}
       <div className="relative bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden p-6 md:p-8">
-        {/* Decorative BG */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
         
         <div className="relative z-10 flex flex-col md:flex-row items-start gap-6">
