@@ -6,14 +6,24 @@ import { useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Users, QrCode, UserCircle, 
   TrendingUp, Wallet, Package, Shirt, BookOpen, 
-  ChevronDown, ChevronRight, Search, LogOut, Menu, X, Bell
+  ChevronDown, ChevronRight, Search, LogOut, Menu, X, Bell,
+  icons
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 const NAV_ITEMS = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
-  { name: 'Teachers', icon: Users, href: '/admin/teachers' },
+  {
+    name: 'Teachers',
+    icon: Users,
+    href: '#',
+    submenu: [
+      {name: 'All Teachers', href : '/admin/teachers'},
+      {name: 'Add Teachers', href: '/admin/teachers/add'},
+    ]
+
+  },
   { name: 'Students', icon: UserCircle, href: '/admin/students' },
   { name: 'Promote', icon: TrendingUp, href: '/admin/promote' },
   { name: 'QR Settings', icon: QrCode, href: '/admin/qr' },
