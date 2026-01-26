@@ -5,8 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { 
   Search, Filter, Calendar, Download, FileText, Table as TableIcon, 
   ChevronDown, BookOpen, ShoppingCart, IndianRupee, Loader2, X, Check, 
-  ChevronLeft, ChevronRight, User, GraduationCap, ChevronRight as ChevronRightIcon,
-  CalendarDays
+  ChevronLeft, ChevronRight, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -142,9 +141,7 @@ export default function IssueNotebookPage() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    loadStudents(); loadItems(); loadStock(); loadIssues();
-  }, []);
+  useEffect(() => { loadStudents(); loadItems(); loadStock(); loadIssues(); }, []);
 
   useEffect(() => {
     function handleClickOutside(event: any) {
@@ -323,7 +320,7 @@ export default function IssueNotebookPage() {
                 </button>
               </div>
 
-              {/* NOTEBOOK SELECTOR (Premium) */}
+              {/* NOTEBOOK SELECTOR (Custom) */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-500 uppercase">Notebook</label>
                 <div className="relative group">
@@ -368,40 +365,14 @@ export default function IssueNotebookPage() {
           
           {/* Filters Bar */}
           <div className="flex flex-col md:flex-row gap-3 bg-zinc-900/40 border border-white/5 p-3 rounded-xl items-end md:items-center">
+            <DatePicker label="From Date" value={fromDate} onChange={setFromDate} />
+            <DatePicker label="To Date" value={toDate} onChange={setToDate} />
             
-            {/* From Date - Premium */}
-            <div className="w-full md:flex-1 relative group">
-              <div className="absolute top-0 right-0 bottom-0 flex items-center pr-3 pointer-events-none">
-                 <CalendarDays className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
-              </div>
-              <input 
-                type="date" 
-                className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 px-3 text-xs text-white outline-none focus:border-indigo-500 transition-all [color-scheme:dark]"
-                value={fromDate} 
-                onChange={e => setFromDate(e.target.value)} 
-              />
-              <span className="absolute -top-2 left-2 px-1 bg-zinc-900 text-[10px] font-bold text-indigo-400 uppercase tracking-wider">From</span>
-            </div>
-
-            {/* To Date - Premium */}
-            <div className="w-full md:flex-1 relative group">
-              <div className="absolute top-0 right-0 bottom-0 flex items-center pr-3 pointer-events-none">
-                 <CalendarDays className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
-              </div>
-              <input 
-                type="date" 
-                className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 px-3 text-xs text-white outline-none focus:border-indigo-500 transition-all [color-scheme:dark]"
-                value={toDate} 
-                onChange={e => setToDate(e.target.value)} 
-              />
-               <span className="absolute -top-2 left-2 px-1 bg-zinc-900 text-[10px] font-bold text-indigo-400 uppercase tracking-wider">To</span>
-            </div>
-
-            {/* Status Filter - Premium */}
+            {/* Status Filter */}
             <div className="w-full md:flex-1 relative group">
                <div className="absolute left-3 top-2.5 pointer-events-none"><Filter className="w-3.5 h-3.5 text-zinc-500" /></div>
                <select 
-                 className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-8 text-xs text-white outline-none appearance-none cursor-pointer focus:border-indigo-500" 
+                 className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 pl-9 pr-8 text-xs text-white outline-none appearance-none cursor-pointer focus:border-indigo-500" 
                  value={filterStatus} 
                  onChange={e => setFilterStatus(e.target.value)}
                >
@@ -412,7 +383,6 @@ export default function IssueNotebookPage() {
                </select>
                <div className="absolute right-3 top-2.5 pointer-events-none"><ChevronDown className="w-3.5 h-3.5 text-zinc-600" /></div>
             </div>
-
           </div>
 
           {/* Table */}
@@ -455,14 +425,16 @@ export default function IssueNotebookPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            {r.status !== 'paid' && (
-                              <button 
-                                onClick={() => setPaymentModal({ open: true, issueId: r.id, currentPaid: r.paid, total: r.total })}
-                                className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded transition-colors"
-                              >
-                                Pay
-                              </button>
-                            )}
+                            <button 
+                              onClick={() => setPaymentModal({ open: true, issueId: r.id, currentPaid: r.paid, total: r.total })}
+                              className={`text-xs px-3 py-1.5 rounded transition-colors border ${
+                                r.status === 'paid' 
+                                  ? 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700 hover:text-white' 
+                                  : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20'
+                              }`}
+                            >
+                              {r.status === 'paid' ? 'View' : 'Pay'}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -495,54 +467,30 @@ export default function IssueNotebookPage() {
               <h2 className="text-sm font-bold text-white uppercase">Select Student</h2>
               <button onClick={() => { setStudentModalOpen(false); setStudentClassFilter(''); }} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
-            
             <div className="flex-1 overflow-hidden flex flex-col">
-              {/* Step 1: Filter by Class */}
               {!studentClassFilter ? (
                  <div className="p-4 overflow-y-auto custom-scrollbar flex-1">
                     <p className="text-xs text-zinc-500 mb-3 font-bold uppercase">Filter by Class</p>
                     <div className="grid grid-cols-2 gap-2">
                       {uniqueClasses.map((cls) => (
-                        <button 
-                          key={cls} 
-                          onClick={() => setStudentClassFilter(cls)}
-                          className="bg-black/40 hover:bg-indigo-600 hover:text-white border border-white/10 rounded-xl p-3 text-center transition-all group"
-                        >
+                        <button key={cls} onClick={() => setStudentClassFilter(cls)} className="bg-black/40 hover:bg-indigo-600 hover:text-white border border-white/10 rounded-xl p-3 text-center transition-all group">
                           <span className="text-sm font-bold text-zinc-300 group-hover:text-white">Class {cls}</span>
                         </button>
                       ))}
                     </div>
                  </div>
               ) : (
-                /* Step 2: Select Student */
                 <div className="flex flex-col h-full">
                   <div className="p-3 border-b border-white/5 flex items-center gap-2 bg-black/20">
                     <button onClick={() => setStudentClassFilter('')} className="p-1 hover:bg-white/10 rounded"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
                     <span className="text-sm font-bold text-white">Class {studentClassFilter} Students</span>
                   </div>
                   <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-                    {filteredStudentsInModal.length === 0 ? (
-                      <p className="text-center text-zinc-500 text-sm py-10">No students found in this class.</p>
-                    ) : (
-                      filteredStudentsInModal.map((student) => (
-                        <button 
-                          key={student.id}
-                          onClick={() => {
-                            setForm({ ...form, student_id: student.id });
-                            setSelectedStudentName(`${student.full_name} (${student.admission_number})`);
-                            setStudentModalOpen(false);
-                            setStudentClassFilter('');
-                          }}
-                          className="w-full text-left p-3 hover:bg-indigo-600/20 hover:border-indigo-500/30 border border-transparent rounded-xl flex items-center justify-between group transition-all"
-                        >
-                          <div>
-                            <p className="text-sm font-bold text-zinc-300 group-hover:text-white">{student.full_name}</p>
-                            <p className="text-xs text-zinc-500 group-hover:text-indigo-300">{student.admission_number}</p>
-                          </div>
-                          <ChevronRightIcon className="w-4 h-4 text-zinc-600 group-hover:text-white" />
-                        </button>
-                      ))
-                    )}
+                    {filteredStudentsInModal.length === 0 ? <p className="text-center text-zinc-500 text-sm py-10">No students found.</p> : filteredStudentsInModal.map((student) => (
+                      <button key={student.id} onClick={() => { setForm({ ...form, student_id: student.id }); setSelectedStudentName(`${student.full_name} (${student.admission_number})`); setStudentModalOpen(false); setStudentClassFilter(''); }} className="w-full text-left p-3 hover:bg-indigo-600/20 hover:border-indigo-500/30 border border-transparent rounded-xl flex items-center justify-between group transition-all">
+                        <div><p className="text-sm font-bold text-zinc-300 group-hover:text-white">{student.full_name}</p><p className="text-xs text-zinc-500 group-hover:text-indigo-300">{student.admission_number}</p></div><ChevronRightIcon className="w-4 h-4 text-zinc-600 group-hover:text-white" />
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -556,7 +504,7 @@ export default function IssueNotebookPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-zinc-900 border border-white/10 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
             <div className="bg-white/5 p-4 border-b border-white/5 flex justify-between items-center">
-              <h2 className="text-sm font-bold text-white uppercase">Add Payment</h2>
+              <h2 className="text-sm font-bold text-white uppercase">{paymentModal.total === paymentModal.currentPaid ? 'Payment Details' : 'Add Payment'}</h2>
               <button onClick={() => setPaymentModal({ open: false, issueId: '', currentPaid: 0, total: 0 })} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-5 space-y-4">
@@ -566,17 +514,60 @@ export default function IssueNotebookPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-500 uppercase">Amount Received</label>
-                <div className="relative">
-                  <IndianRupee className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
-                  <input type="number" autoFocus className="w-full bg-black/40 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-white focus:border-indigo-500 outline-none" placeholder="0" value={addAmount} onChange={e => setAddAmount(e.target.value)} />
-                </div>
+                <div className="relative"><IndianRupee className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" /><input type="number" autoFocus className="w-full bg-black/40 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-white focus:border-indigo-500 outline-none" placeholder="0" value={addAmount} onChange={e => setAddAmount(e.target.value)} /></div>
               </div>
               <button onClick={savePayment} className="w-full bg-green-600 hover:bg-green-500 text-white py-2.5 rounded-xl font-bold shadow-lg transition-all">Record Payment</button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
+/* =========================
+   HELPER: CUSTOM DATE PICKER
+========================= */
+function DatePicker({ label, value, onChange }: { label: string; value: string; onChange: (d: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [pickerDate, setPickerDate] = useState(value ? new Date(value) : new Date());
+  const ref = useRef<any>(null);
+
+  useEffect(() => {
+    const clickOutside = (e: any) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", clickOutside);
+    return () => document.removeEventListener("mousedown", clickOutside);
+  }, []);
+
+  const handleSelect = (day: number) => {
+    const y = pickerDate.getFullYear(), m = String(pickerDate.getMonth() + 1).padStart(2, '0'), d = String(day).padStart(2, '0');
+    onChange(`${y}-${m}-${d}`); setOpen(false);
+  };
+  const changeMonth = (off: number) => setPickerDate(new Date(pickerDate.getFullYear(), pickerDate.getMonth() + off, 1));
+  const days = new Date(pickerDate.getFullYear(), pickerDate.getMonth() + 1, 0).getDate();
+  const start = new Date(pickerDate.getFullYear(), pickerDate.getMonth(), 1).getDay();
+
+  return (
+    <div className="w-full md:flex-1 space-y-1 relative" ref={ref}>
+      <label className="text-[10px] font-bold text-zinc-500 uppercase ml-1">{label}</label>
+      <button onClick={() => setOpen(!open)} className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 px-3 flex items-center justify-between text-xs text-white hover:border-indigo-500 transition-all">
+        <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-zinc-500" /> <span>{value || 'Select Date'}</span></div>
+        <ChevronDown className="w-3.5 h-3.5 text-zinc-600" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-2 w-64 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-[50] p-3 animate-fade-in-up">
+          <div className="flex justify-between items-center mb-3 pb-2 border-b border-white/5">
+            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white/10 rounded text-zinc-400"><ChevronLeft className="w-3 h-3" /></button>
+            <span className="font-bold text-white text-xs">{pickerDate.toLocaleString('default', { month: 'short', year: 'numeric' })}</span>
+            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white/10 rounded text-zinc-400"><ChevronRight className="w-3 h-3" /></button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center mb-1">{['S','M','T','W','T','F','S'].map(d => <span key={d} className="text-[10px] text-zinc-500 font-bold">{d}</span>)}</div>
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: start }).map((_, i) => <div key={`e-${i}`} />)}
+            {Array.from({ length: days }).map((_, i) => <button key={i} onClick={() => handleSelect(i + 1)} className="p-1.5 text-xs rounded hover:bg-indigo-600 hover:text-white text-zinc-300 transition-colors">{i + 1}</button>)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
