@@ -11,36 +11,38 @@ import {
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-/* --- NAVIGATION CONFIG --- */
+/* --- UPDATED NAVIGATION CONFIG --- */
 const NAV_ITEMS = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
   { name: 'Teachers', icon: Users, href: '/admin/teachers' },
+  { name: 'Students', icon: UserCircle, href: '/admin/students' },
+  { name: 'Promote Students', icon: TrendingUp, href: '/admin/promote' }, // Restored
   { name: 'QR Settings', icon: QrCode, href: '/admin/qr' },
   { name: 'Fees', icon: Wallet, href: '#', submenu: [
-      { name: 'Collect Fees', href: '/admin/fees/collect' },
+      { name: 'Collect Fees', href: '/admin/fees' },
       { name: 'Fee Classes', href: '/admin/fees/classes' },
   ]},
   { name: 'Inventory', icon: Package, href: '#', submenu: [
       { name: 'Notebooks', icon: BookOpen, subItems: [
-          { name: 'Issue', href: '/admin/inv/notebooks/issue' },
+          { name: 'Issue', href: '/admin/inv/notebooks/issues' },
           { name: 'Stock', href: '/admin/inv/notebooks/stock' }
       ]},
       { name: 'Uniforms', icon: Shirt, subItems: [
-          { name: 'Issue', href: '/admin/inv/uniforms/issue' },
+          { name: 'Issue', href: '/admin/inv/uniforms/issues' },
           { name: 'Stock', href: '/admin/inv/uniforms/stock' }
       ]}
   ]},
-  { name: 'Students', icon: UserCircle, href: '/admin/students' },
+  { name: 'Profile', icon: UserCircle, href: '/admin/profile' }, // Restored
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(true); // UI Toggle State
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   return (
     <div className={`min-h-screen font-sans selection:bg-purple-500/30 ${isDarkMode ? 'bg-black text-white' : 'bg-gray-100 text-gray-900'} transition-colors duration-500`}>
       
-      {/* --- GLOBAL BACKGROUND EFFECTS (Dark Mode Only) --- */}
+      {/* --- GLOBAL BACKGROUND EFFECTS --- */}
       {isDarkMode && (
         <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
           <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-purple-900/20 blur-[120px] animate-pulse-slow" />
@@ -84,8 +86,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           border-b backdrop-blur-md transition-colors duration-300
           ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-gray-200 bg-white/80'}
         `}>
-          
-          {/* Left: Search & Toggle */}
           <div className="flex items-center gap-6">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition">
               <Menu className="w-5 h-5" />
@@ -105,24 +105,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </div>
 
-          {/* Right: Actions */}
           <div className="flex items-center gap-4">
-            {/* Theme Toggle */}
             <button 
               onClick={() => setIsDarkMode(!isDarkMode)}
               className={`p-2.5 rounded-full border transition-all duration-300 ${isDarkMode ? 'border-white/10 bg-white/5 hover:bg-white/10 text-yellow-400' : 'border-gray-200 bg-gray-100 text-gray-600'}`}
             >
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-
             <div className={`h-8 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
-            
             <LogoutButton isDark={isDarkMode} />
           </div>
         </header>
 
-        {/* PAGE CONTENT */}
-        <div className="p-8">
+        {/* PAGE CONTENT + SMOOTH TRANSITION KEY */}
+        <div className="p-8 animate-fade-in-up">
           {children}
         </div>
 
@@ -131,8 +127,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 }
 
-// --- SUB-COMPONENTS ---
-
+// --- SUB-COMPONENTS (Same as before) ---
 function SidebarItem({ item, expanded, isDark }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
@@ -161,26 +156,16 @@ function SidebarItem({ item, expanded, isDark }: any) {
           <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180 text-white' : 'text-zinc-600'}`} />
         )}
       </Link>
-
-      {/* Nested Menus */}
       {expanded && hasSub && (
         <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0'}`}>
-          <div className="overflow-hidden">
-            <div className={`ml-4 pl-4 border-l ${isDark ? 'border-white/10' : 'border-gray-200'} space-y-1`}>
-              {item.submenu.map((sub: any, idx: number) => (
-                sub.subItems ? (
-                  // Deep Nesting (Inventory)
-                  <NestedItem key={idx} item={sub} isDark={isDark} />
-                ) : (
-                  <Link 
-                    key={idx} href={sub.href}
-                    className={`block px-4 py-2.5 rounded-lg text-sm transition-colors ${isDark ? 'text-zinc-500 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50'}`}
-                  >
-                    {sub.name}
-                  </Link>
-                )
-              ))}
-            </div>
+          <div className="overflow-hidden ml-4 pl-4 border-l border-white/10 space-y-1">
+            {item.submenu.map((sub: any, idx: number) => (
+              sub.subItems ? (
+                <NestedItem key={idx} item={sub} isDark={isDark} />
+              ) : (
+                <Link key={idx} href={sub.href} className={`block px-4 py-2.5 rounded-lg text-sm transition-colors ${isDark ? 'text-zinc-500 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-purple-600'}`}>{sub.name}</Link>
+              )
+            ))}
           </div>
         </div>
       )}
@@ -192,19 +177,14 @@ function NestedItem({ item, isDark }: any) {
   const [open, setOpen] = useState(false);
   return (
     <div>
-      <button 
-        onClick={() => setOpen(!open)}
-        className={`w-full flex items-center justify-between px-4 py-2 text-sm rounded-lg transition ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-600 hover:text-black'}`}
-      >
+      <button onClick={() => setOpen(!open)} className={`w-full flex items-center justify-between px-4 py-2 text-sm rounded-lg transition ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-600'}`}>
         <span className="flex items-center gap-2">{item.icon && <item.icon className="w-4 h-4" />}{item.name}</span>
         <ChevronRight className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
         <div className="ml-4 mt-1 space-y-1 border-l border-white/10 pl-2">
           {item.subItems.map((sub: any, i: number) => (
-             <Link key={i} href={sub.href} className={`block px-3 py-1.5 text-xs rounded transition ${isDark ? 'text-zinc-500 hover:text-purple-400' : 'text-gray-500'}`}>
-               {sub.name}
-             </Link>
+             <Link key={i} href={sub.href} className={`block px-3 py-1.5 text-xs rounded transition ${isDark ? 'text-zinc-500 hover:text-purple-400' : 'text-gray-500'}`}>{sub.name}</Link>
           ))}
         </div>
       )}
@@ -216,13 +196,8 @@ function LogoutButton({ isDark }: any) {
   const router = useRouter();
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    toast.success('See you soon!');
+    toast.success('Logged out');
     router.push('/');
   };
-  return (
-    <button onClick={handleLogout} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${isDark ? 'hover:bg-red-500/10 text-zinc-400 hover:text-red-400' : 'hover:bg-red-50 text-gray-600 hover:text-red-600'}`}>
-      <LogOut className="w-4 h-4" />
-      <span>Logout</span>
-    </button>
-  );
+  return <button onClick={handleLogout} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${isDark ? 'hover:bg-red-500/10 text-zinc-400 hover:text-red-400' : 'hover:bg-red-50'}`}><LogOut className="w-4 h-4" /><span>Logout</span></button>;
 }

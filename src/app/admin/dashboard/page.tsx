@@ -2,40 +2,59 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-// 1. REMOVE Defs, LinearGradient, Stop from here
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from 'recharts';
 import { 
-  Users, UserCheck, Wallet, Package, ArrowUpRight, Filter, Calendar
+  Users, UserCheck, Wallet, Package, ArrowUpRight, 
+  ChevronLeft, ChevronRight, Calendar as CalIcon
 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   
-  // Data States
+  // --- REAL DATA STATES ---
   const [counts, setCounts] = useState({ student: 0, teacher: 0 });
+  const [inventory, setInventory] = useState({ stock: 0, collected: 0 });
   const [feeGraph, setFeeGraph] = useState<any[]>([]);
-  const [graphFilter, setGraphFilter] = useState('6_months');
+  
+  // Calendar State
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
-    loadData();
-  }, [graphFilter]);
+    loadRealData();
+  }, []);
 
-  async function loadData() {
+  async function loadRealData() {
     setLoading(true);
     
     // 1. Counts
-    const { count: s } = await supabase.from('students').select('*', { count: 'exact', head: true });
-    const { count: t } = await supabase.from('teachers').select('*', { count: 'exact', head: true });
-    setCounts({ student: s ?? 0, teacher: t ?? 0 });
+    const { count: s } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'active');
+    const { count: t } = await supabase.from('teachers').select('*', { count: 'exact', head: true }).eq('status', 'active');
+    
+    // 2. Inventory Stats (Real Math)
+    const [uStock, nStock, uIssues, nIssues] = await Promise.all([
+      supabase.from('uniform_stock').select('quantity'),
+      supabase.from('notebook_stock').select('quantity'),
+      supabase.from('uniform_issues').select('paid_amount'),
+      supabase.from('notebook_issues').select('paid_amount'),
+    ]);
+    
+    const totalStock = (uStock.data?.reduce((s, r) => s + r.quantity, 0) || 0) + 
+                       (nStock.data?.reduce((s, r) => s + r.quantity, 0) || 0);
+                       
+    const totalCollected = (uIssues.data?.reduce((s, r) => s + r.paid_amount, 0) || 0) + 
+                           (nIssues.data?.reduce((s, r) => s + r.paid_amount, 0) || 0);
 
-    // 2. Fees Graph
+    setCounts({ student: s ?? 0, teacher: t ?? 0 });
+    setInventory({ stock: totalStock, collected: totalCollected });
+
+    // 3. Fee Graph (Real Data)
     const { data: fees } = await supabase
       .from('fee_records')
       .select('fee_month, total_amount, paid_amount')
       .order('fee_month', { ascending: false })
-      .limit(graphFilter === '6_months' ? 6 : 12);
+      .limit(6);
     
     if (fees) {
       const formatted = fees.map(f => ({
@@ -49,6 +68,10 @@ export default function AdminDashboard() {
     setLoading(false);
   }
 
+  // Helper for Calendar
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const startDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+
   if (loading) return <div className="p-10 text-center text-zinc-500 animate-pulse">Syncing Dashboard...</div>;
 
   return (
@@ -60,14 +83,7 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
             Overview
           </h1>
-          <p className="text-zinc-500 mt-1">Welcome to Project Aalu Command Center</p>
-        </div>
-        
-        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-full px-4 py-2 backdrop-blur-md">
-          <Calendar className="w-4 h-4 text-purple-400" />
-          <span className="text-sm text-zinc-300">
-            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </span>
+          <p className="text-zinc-500 mt-1">Real-time metrics from your database</p>
         </div>
       </div>
 
@@ -84,37 +100,30 @@ export default function AdminDashboard() {
           color="purple"
         />
         <GlassCard 
-          label="Fee Collected" value="₹8.4M" 
+          label="Inventory Revenue" value={`₹${inventory.collected.toLocaleString()}`} 
           icon={<Wallet className="w-6 h-6 text-emerald-400" />} 
           color="emerald"
         />
         <GlassCard 
-          label="Inventory Stock" value="1,240" 
+          label="Total Stock Items" value={inventory.stock} 
           icon={<Package className="w-6 h-6 text-orange-400" />} 
           color="orange"
         />
       </div>
 
-      {/* CHART SECTION */}
+      {/* CHART & CALENDAR GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* BIG GRAPH */}
+        {/* GRAPH (2/3 Width) */}
         <div className="lg:col-span-2 relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
           
-          <div className="relative bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 h-full">
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Revenue Analytics</h3>
-                <p className="text-xs text-zinc-500">Income vs Pending Dues</p>
-              </div>
-            </div>
+          <div className="relative bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 h-full flex flex-col">
+            <h3 className="text-lg font-semibold text-white mb-6">Fee Collection Trend</h3>
 
-            <div className="h-[300px] w-full">
+            <div className="flex-1 w-full min-h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={feeGraph} barSize={12} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  
-                  {/* 2. FIX: Use lowercase SVG tags directly here */}
+                <BarChart data={feeGraph} barSize={15} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorCollected" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#34d399" stopOpacity={0.8}/>
@@ -132,40 +141,51 @@ export default function AdminDashboard() {
                   <Tooltip 
                     cursor={{fill: 'rgba(255,255,255,0.05)'}}
                     contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '8px' }}
-                    itemStyle={{ fontSize: '12px' }}
                   />
-                  <Bar dataKey="collected" fill="url(#colorCollected)" radius={[4, 4, 0, 0]} animationDuration={1500} />
-                  <Bar dataKey="due" fill="url(#colorDue)" radius={[4, 4, 0, 0]} animationDuration={1500} />
+                  <Bar dataKey="collected" fill="url(#colorCollected)" radius={[4, 4, 0, 0]} name="Collected" />
+                  <Bar dataKey="due" fill="url(#colorDue)" radius={[4, 4, 0, 0]} name="Due" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
         </div>
 
-        {/* SIDE PANELS */}
-        <div className="space-y-6">
-          <div className="bg-gradient-to-br from-purple-900/40 to-black border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl"></div>
-            <h3 className="text-white font-bold text-lg mb-1">Fee Collection</h3>
-            <p className="text-purple-200/60 text-xs mb-6">Quickly record a new payment</p>
-            <button className="w-full bg-white text-black font-semibold py-3 rounded-xl hover:scale-105 transition transform flex items-center justify-center gap-2 text-sm">
-               Record Transaction <ArrowUpRight className="w-4 h-4" />
-            </button>
+        {/* CALENDAR WIDGET (1/3 Width) */}
+        <div className="bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-semibold text-white flex items-center gap-2">
+              <CalIcon className="w-4 h-4 text-purple-400" /> Calendar
+            </h3>
+            <div className="flex gap-2">
+               <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-1 hover:bg-white/10 rounded"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
+               <span className="text-sm font-medium text-white min-w-[80px] text-center">
+                 {currentDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
+               </span>
+               <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-1 hover:bg-white/10 rounded"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>
+            </div>
           </div>
 
-          <div className="bg-[#0a0a0a]/60 backdrop-blur border border-white/10 p-5 rounded-2xl">
-            <h4 className="text-sm font-semibold text-zinc-300 mb-4">Recent Alerts</h4>
-            <div className="space-y-3">
-              {[1,2,3].map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition cursor-pointer">
-                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                  <div className="flex-1">
-                    <p className="text-xs text-zinc-300">Inventory Low: Notebooks</p>
-                    <p className="text-[10px] text-zinc-600">2 mins ago</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs mb-2">
+            {['S','M','T','W','T','F','S'].map(d => <span key={d} className="text-zinc-500 font-bold">{d}</span>)}
+          </div>
+          
+          <div className="grid grid-cols-7 gap-1 text-center text-sm">
+            {Array.from({ length: startDay }).map((_, i) => <div key={`empty-${i}`} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+               const day = i + 1;
+               const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
+               return (
+                 <div 
+                   key={day} 
+                   className={`
+                     py-2 rounded-lg cursor-pointer transition
+                     ${isToday ? 'bg-purple-600 text-white font-bold shadow-lg shadow-purple-500/30' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}
+                   `}
+                 >
+                   {day}
+                 </div>
+               );
+            })}
           </div>
         </div>
 
@@ -191,7 +211,7 @@ function GlassCard({ label, value, icon, color }: any) {
       <div className="flex justify-between items-start">
         <div>
           <p className="text-zinc-500 text-xs font-medium uppercase tracking-widest mb-2">{label}</p>
-          <h3 className="text-3xl font-bold text-white tracking-tight">{typeof value === 'number' ? value.toLocaleString() : value}</h3>
+          <h3 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">{value}</h3>
         </div>
         <div className="p-3 rounded-xl bg-white/5 ring-1 ring-white/10 group-hover:bg-white/10 transition-colors">
           {icon}
