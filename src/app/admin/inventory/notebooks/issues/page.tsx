@@ -3,9 +3,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
-  Search, Filter, Plus, Calendar, Download, FileText, Table as TableIcon, 
+  Search, Filter, Calendar, Download, FileText, Table as TableIcon, 
   ChevronDown, BookOpen, ShoppingCart, IndianRupee, Loader2, X, Check, 
-  ChevronLeft, ChevronRight, User, GraduationCap, ChevronRight as ChevronRightIcon
+  ChevronLeft, ChevronRight, User, GraduationCap, ChevronRight as ChevronRightIcon,
+  CalendarDays
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -19,7 +20,7 @@ type Student = {
   id: string;
   admission_number: string;
   full_name: string;
-  class: string; // Added class for filtering
+  class: string;
 };
 
 type NotebookItem = {
@@ -64,7 +65,7 @@ export default function IssueNotebookPage() {
     quantity: '',
     paid_amount: '',
   });
-  const [selectedStudentName, setSelectedStudentName] = useState(''); // For display
+  const [selectedStudentName, setSelectedStudentName] = useState('');
   const [issuing, setIssuing] = useState(false);
 
   /* ---------- Filters ---------- */
@@ -86,7 +87,7 @@ export default function IssueNotebookPage() {
   }>({ open: false, issueId: '', currentPaid: 0, total: 0 });
 
   const [studentModalOpen, setStudentModalOpen] = useState(false);
-  const [studentClassFilter, setStudentClassFilter] = useState(''); // Filter students by class in modal
+  const [studentClassFilter, setStudentClassFilter] = useState('');
 
   const [addAmount, setAddAmount] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -96,7 +97,6 @@ export default function IssueNotebookPage() {
      LOAD DATA
   ========================= */
   async function loadStudents() {
-    // Added 'class' to select
     const { data } = await supabase.from('students').select('id, admission_number, full_name, class').order('full_name');
     setStudents(data ?? []);
   }
@@ -155,20 +155,18 @@ export default function IssueNotebookPage() {
   }, []);
 
   /* =========================
-     FILTERS & PAGINATION
+     FILTERS
   ========================= */
   useEffect(() => {
     let filtered = [...allRows];
-    // Removed Student Filter from here as requested
     if (filterStatus) filtered = filtered.filter(r => r.status === filterStatus);
     if (fromDate) filtered = filtered.filter(r => new Date(r.issued_at_raw) >= new Date(fromDate));
     if (toDate) filtered = filtered.filter(r => new Date(r.issued_at_raw) <= new Date(toDate));
     
     setRows(filtered);
-    setCurrentPage(1); // Reset to page 1 on filter change
+    setCurrentPage(1); 
   }, [filterStatus, fromDate, toDate, allRows]);
 
-  // Pagination Logic
   const totalPages = Math.ceil(rows.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedRows = rows.slice(startIndex, startIndex + rowsPerPage);
@@ -214,7 +212,7 @@ export default function IssueNotebookPage() {
 
     toast.success('Notebook issued successfully');
     setForm({ student_id: '', item_id: '', quantity: '', paid_amount: '' });
-    setSelectedStudentName(''); // Reset display name
+    setSelectedStudentName(''); 
     loadStock(); loadIssues();
     setIssuing(false);
   }
@@ -258,16 +256,13 @@ export default function IssueNotebookPage() {
   };
 
   /* =========================
-     DERIVED & HELPERS
+     HELPERS
   ========================= */
   const selectedItem = items.find(i => i.id === form.item_id);
   const totalAmount = selectedItem && form.quantity ? Number(form.quantity) * selectedItem.price : 0;
   
-  // Get unique classes for the student filter modal
   const uniqueClasses = Array.from(new Set(students.map(s => s.class))).sort();
-  const filteredStudentsInModal = studentClassFilter 
-    ? students.filter(s => s.class === studentClassFilter) 
-    : [];
+  const filteredStudentsInModal = studentClassFilter ? students.filter(s => s.class === studentClassFilter) : [];
 
   /* =========================
      UI RENDER
@@ -328,20 +323,20 @@ export default function IssueNotebookPage() {
                 </button>
               </div>
 
-              {/* NOTEBOOK SELECTOR (Custom) */}
+              {/* NOTEBOOK SELECTOR (Premium) */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-500 uppercase">Notebook</label>
                 <div className="relative group">
-                  <BookOpen className="absolute left-3 top-3 w-4 h-4 text-zinc-500 z-10" />
+                  <div className="absolute left-3 top-3 pointer-events-none"><BookOpen className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" /></div>
                   <select 
-                    className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 pl-10 pr-3 text-white text-sm focus:border-indigo-500 outline-none appearance-none cursor-pointer"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 pl-10 pr-8 text-white text-sm focus:border-indigo-500 outline-none appearance-none cursor-pointer"
                     value={form.item_id} 
                     onChange={e => setForm({ ...form, item_id: e.target.value })}
                   >
                     <option value="" className="bg-zinc-900 text-zinc-500">Select Notebook</option>
                     {items.map(i => <option key={i.id} value={i.id} className="bg-zinc-900">{i.name} (₹{i.price})</option>)}
                   </select>
-                  <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-zinc-600 pointer-events-none" />
+                  <div className="absolute right-3 top-3 pointer-events-none"><ChevronDown className="w-4 h-4 text-zinc-500" /></div>
                 </div>
               </div>
 
@@ -374,34 +369,48 @@ export default function IssueNotebookPage() {
           {/* Filters Bar */}
           <div className="flex flex-col md:flex-row gap-3 bg-zinc-900/40 border border-white/5 p-3 rounded-xl items-end md:items-center">
             
-            {/* From Date */}
-            <div className="w-full md:flex-1 space-y-1">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase ml-1">From Date</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-500" />
-                <input type="date" className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-indigo-500 transition-all" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+            {/* From Date - Premium */}
+            <div className="w-full md:flex-1 relative group">
+              <div className="absolute top-0 right-0 bottom-0 flex items-center pr-3 pointer-events-none">
+                 <CalendarDays className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
               </div>
+              <input 
+                type="date" 
+                className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 px-3 text-xs text-white outline-none focus:border-indigo-500 transition-all [color-scheme:dark]"
+                value={fromDate} 
+                onChange={e => setFromDate(e.target.value)} 
+              />
+              <span className="absolute -top-2 left-2 px-1 bg-zinc-900 text-[10px] font-bold text-indigo-400 uppercase tracking-wider">From</span>
             </div>
 
-            {/* To Date */}
-            <div className="w-full md:flex-1 space-y-1">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase ml-1">To Date</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-500" />
-                <input type="date" className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-indigo-500 transition-all" value={toDate} onChange={e => setToDate(e.target.value)} />
+            {/* To Date - Premium */}
+            <div className="w-full md:flex-1 relative group">
+              <div className="absolute top-0 right-0 bottom-0 flex items-center pr-3 pointer-events-none">
+                 <CalendarDays className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
               </div>
+              <input 
+                type="date" 
+                className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 px-3 text-xs text-white outline-none focus:border-indigo-500 transition-all [color-scheme:dark]"
+                value={toDate} 
+                onChange={e => setToDate(e.target.value)} 
+              />
+               <span className="absolute -top-2 left-2 px-1 bg-zinc-900 text-[10px] font-bold text-indigo-400 uppercase tracking-wider">To</span>
             </div>
 
-            {/* Status Filter */}
-            <div className="w-full md:flex-1 space-y-1">
-               <label className="text-[10px] font-bold text-zinc-500 uppercase ml-1">Payment Status</label>
-               <div className="relative">
-                 <Filter className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-500" />
-                 <select className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-8 text-xs text-white outline-none appearance-none cursor-pointer focus:border-indigo-500" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                   <option value="" className="bg-zinc-900">All Status</option><option value="paid" className="bg-zinc-900">Paid</option><option value="partial" className="bg-zinc-900">Partial</option><option value="unpaid" className="bg-zinc-900">Unpaid</option>
-                 </select>
-                 <ChevronDown className="absolute right-3 top-2.5 w-3.5 h-3.5 text-zinc-600 pointer-events-none" />
-               </div>
+            {/* Status Filter - Premium */}
+            <div className="w-full md:flex-1 relative group">
+               <div className="absolute left-3 top-2.5 pointer-events-none"><Filter className="w-3.5 h-3.5 text-zinc-500" /></div>
+               <select 
+                 className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-8 text-xs text-white outline-none appearance-none cursor-pointer focus:border-indigo-500" 
+                 value={filterStatus} 
+                 onChange={e => setFilterStatus(e.target.value)}
+               >
+                 <option value="" className="bg-zinc-900">All Status</option>
+                 <option value="paid" className="bg-zinc-900">Paid</option>
+                 <option value="partial" className="bg-zinc-900">Partial</option>
+                 <option value="unpaid" className="bg-zinc-900">Unpaid</option>
+               </select>
+               <div className="absolute right-3 top-2.5 pointer-events-none"><ChevronDown className="w-3.5 h-3.5 text-zinc-600" /></div>
             </div>
 
           </div>
