@@ -5,8 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { 
   Search, Filter, Plus, Edit3, Trash2, X, Check, Loader2, 
   ChevronLeft, ChevronRight, Download, MoreHorizontal, GraduationCap, 
-  FileText, Table as TableIcon, ChevronDown, User, Calendar
+  FileText, Table as TableIcon, ChevronDown, User, Calendar, Eye
 } from 'lucide-react';
+import Link from 'next/link'; // <--- ADDED THIS
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -25,7 +26,6 @@ type Student = {
   status: 'active' | 'inactive';
 };
 
-// Fixed Props Interface for the Helper Component
 interface InputGroupProps {
   label: string;
   icon: React.ReactNode;
@@ -92,7 +92,6 @@ export default function StudentsPage() {
     loadStudents();
   }, []);
 
-  // Close menus on outside click
   useEffect(() => {
     function handleClickOutside(event: any) {
       if (exportRef.current && !exportRef.current.contains(event.target)) setShowExportMenu(false);
@@ -104,7 +103,6 @@ export default function StudentsPage() {
   /* =========================
      LOGIC: FILTER & PAGINATION
   ========================= */
-  // 1. Filter Data
   const filteredStudents = students.filter(s => {
     const matchesSearch = 
       s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -115,12 +113,10 @@ export default function StudentsPage() {
     return matchesSearch && matchesClass && matchesStatus;
   });
 
-  // 2. Paginate Data
   const totalPages = Math.ceil(filteredStudents.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedStudents = filteredStudents.slice(startIndex, startIndex + rowsPerPage);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, classFilter, statusFilter, rowsPerPage]);
@@ -221,7 +217,7 @@ export default function StudentsPage() {
   return (
     <div className="space-y-6 animate-fade-in-up pb-20 md:pb-10">
       
-      {/* --- HEADER --- */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Student Directory</h1>
@@ -258,10 +254,9 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {/* --- FILTER BAR --- */}
+      {/* FILTER BAR */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-4 rounded-2xl relative z-10">
         
-        {/* Search */}
         <div className="relative group col-span-1 md:col-span-2 lg:col-span-1">
           <Search className="absolute left-3 top-3.5 w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
           <input 
@@ -272,7 +267,6 @@ export default function StudentsPage() {
           />
         </div>
 
-        {/* Class Filter */}
         <div className="relative group">
           <div className="absolute left-3 top-3.5"><Filter className="w-4 h-4 text-zinc-500" /></div>
           <input 
@@ -283,7 +277,6 @@ export default function StudentsPage() {
           />
         </div>
 
-        {/* Status Filter */}
         <div className="relative group">
            <div className="absolute left-3 top-3.5"><Check className="w-4 h-4 text-zinc-500" /></div>
            <select 
@@ -298,7 +291,6 @@ export default function StudentsPage() {
            <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-zinc-600 pointer-events-none" />
         </div>
 
-        {/* Rows Per Page */}
         <div className="relative group">
            <div className="absolute left-3 top-3.5"><MoreHorizontal className="w-4 h-4 text-zinc-500" /></div>
            <select 
@@ -315,7 +307,7 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      {/* --- TABLE --- */}
+      {/* TABLE */}
       <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-xl min-h-[400px] flex flex-col">
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center p-20 space-y-4 text-zinc-500">
@@ -348,7 +340,9 @@ export default function StudentsPage() {
                     <tr key={s.id} className="group hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4 text-zinc-400 font-mono text-xs font-medium">{s.admission_number}</td>
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-white">{s.full_name}</div>
+                        <Link href={`/admin/students/${s.id}`} className="font-semibold text-white hover:text-indigo-400 hover:underline transition-colors">
+                          {s.full_name}
+                        </Link>
                       </td>
                       <td className="px-6 py-4 text-zinc-300"><span className="bg-white/5 px-2 py-1 rounded border border-white/5">{s.class}</span></td>
                       <td className="px-6 py-4 text-zinc-400">{s.section ?? '-'}</td>
@@ -360,6 +354,11 @@ export default function StudentsPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                           <Link href={`/admin/students/${s.id}`}>
+                             <button className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all" title="View Profile">
+                               <Eye className="w-4 h-4" />
+                             </button>
+                           </Link>
                           <button onClick={() => setEditingStudent(s)} className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Edit">
                             <Edit3 className="w-4 h-4" />
                           </button>
@@ -374,7 +373,6 @@ export default function StudentsPage() {
               </table>
             </div>
 
-            {/* Pagination Controls */}
             <div className="p-4 border-t border-white/5 flex items-center justify-between bg-black/20">
               <p className="text-xs text-zinc-500">
                 Showing <span className="text-white font-medium">{startIndex + 1}-{Math.min(startIndex + rowsPerPage, filteredStudents.length)}</span> of <span className="text-white font-medium">{filteredStudents.length}</span>
