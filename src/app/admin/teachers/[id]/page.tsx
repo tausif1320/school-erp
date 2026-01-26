@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { 
   ArrowLeft, Calendar, Phone, Briefcase, BookOpen, 
-  User, CheckCircle2, Clock, Shield, MapPin, Users, Loader2 
+  User,Users, CheckCircle2, Clock, Shield, MapPin, Loader2, Edit3, Save
 } from 'lucide-react';
 
 /* =========================
@@ -27,7 +27,6 @@ type Teacher = {
   phone: string;
   join_date: string;
   status: string;
-  // Added missing fields
   gender: string;
   dob: string;
   father_name: string;
@@ -50,6 +49,10 @@ export default function TeacherDetailsPage() {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // NEW: Edit State
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   /* --- LOGIC: LOAD DATA --- */
   async function loadTeacher(id: string) {
@@ -89,6 +92,38 @@ export default function TeacherDetailsPage() {
     setAttendance(formattedData);
   }
 
+  /* --- LOGIC: UPDATE TEACHER --- */
+  async function saveTeacher() {
+    if (!teacher) return;
+    setSaving(true);
+
+    const { error } = await supabase
+      .from('teachers')
+      .update({
+        full_name: teacher.full_name,
+        designation: teacher.designation,
+        subject: teacher.subject,
+        phone: teacher.phone,
+        join_date: teacher.join_date,
+        gender: teacher.gender,
+        dob: teacher.dob,
+        father_name: teacher.father_name,
+        mother_name: teacher.mother_name,
+        husband_name: teacher.husband_name,
+        current_address: teacher.current_address,
+        permanent_address: teacher.permanent_address,
+      })
+      .eq('id', teacher.id);
+
+    if (error) {
+      toast.error('Failed to update profile');
+    } else {
+      toast.success('Teacher profile updated');
+      setEditMode(false);
+    }
+    setSaving(false);
+  }
+
   useEffect(() => {
     if (!teacherId) {
       toast.error('Invalid teacher ID');
@@ -125,37 +160,63 @@ export default function TeacherDetailsPage() {
       <div className="relative bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden p-6 md:p-8">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
         
-        <div className="relative z-10 flex flex-col md:flex-row items-start gap-6">
-          <button 
-            onClick={() => router.back()} 
-            className="group p-3 bg-black/20 hover:bg-white/10 rounded-2xl border border-white/5 transition-all"
-          >
-            <ArrowLeft className="w-5 h-5 text-zinc-400 group-hover:text-white" />
-          </button>
-          
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6 w-full">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-900/50 to-zinc-900 border border-white/10 flex items-center justify-center shadow-2xl">
-                <span className="text-3xl font-bold text-indigo-400">{teacher.full_name[0]}</span>
+        <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6">
+          <div className="flex flex-col md:flex-row items-start gap-6 w-full">
+            <button 
+              onClick={() => router.back()} 
+              className="group p-3 bg-black/20 hover:bg-white/10 rounded-2xl border border-white/5 transition-all"
+            >
+              <ArrowLeft className="w-5 h-5 text-zinc-400 group-hover:text-white" />
+            </button>
+            
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 flex-1">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-900/50 to-zinc-900 border border-white/10 flex items-center justify-center shadow-2xl">
+                  <span className="text-3xl font-bold text-indigo-400">{teacher.full_name[0]}</span>
+                </div>
+                <div className={`absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-4 border-zinc-900 ${teacher.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
               </div>
-              <div className={`absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-4 border-zinc-900 ${teacher.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-            </div>
 
-            <div className="text-center md:text-left space-y-2 flex-1">
-              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">{teacher.full_name}</h1>
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium flex items-center gap-2">
-                  <Briefcase className="w-3.5 h-3.5 text-indigo-400" /> {teacher.designation || 'N/A'}
-                </span>
-                <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium flex items-center gap-2">
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-400" /> {teacher.subject || 'N/A'}
-                </span>
-                <span className={`px-3 py-1 rounded-lg border text-sm font-medium flex items-center gap-2 ${teacher.status === 'active' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                  {teacher.status.toUpperCase()}
-                </span>
+              <div className="text-center md:text-left space-y-2 flex-1">
+                {editMode ? (
+                  <input 
+                    className="text-3xl md:text-4xl font-bold text-white bg-black/40 border border-white/10 rounded-xl px-4 py-1 w-full max-w-md focus:border-indigo-500 outline-none"
+                    value={teacher.full_name}
+                    onChange={(e) => setTeacher({ ...teacher, full_name: e.target.value })}
+                  />
+                ) : (
+                  <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">{teacher.full_name}</h1>
+                )}
+                
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                  <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium flex items-center gap-2">
+                    <Briefcase className="w-3.5 h-3.5 text-indigo-400" /> {teacher.designation || 'N/A'}
+                  </span>
+                  <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium flex items-center gap-2">
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-400" /> {teacher.subject || 'N/A'}
+                  </span>
+                  <span className={`px-3 py-1 rounded-lg border text-sm font-medium flex items-center gap-2 ${teacher.status === 'active' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                    {teacher.status.toUpperCase()}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* EDIT BUTTON */}
+          <button
+            onClick={() => editMode ? saveTeacher() : setEditMode(true)}
+            disabled={saving}
+            className={`
+              flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-xl whitespace-nowrap
+              ${editMode 
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20' 
+                : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'}
+            `}
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+            {editMode ? 'Save Changes' : 'Edit Profile'}
+          </button>
         </div>
       </div>
 
@@ -171,10 +232,10 @@ export default function TeacherDetailsPage() {
               <h2 className="text-sm font-bold uppercase tracking-wider text-white">Professional Info</h2>
             </div>
             <div className="space-y-6">
-              <InfoItem label="Phone Number" value={teacher.phone} icon={<Phone className="w-4 h-4" />} />
-              <InfoItem label="Date of Joining" value={teacher.join_date} icon={<Calendar className="w-4 h-4" />} />
-              <InfoItem label="Subject Expert" value={teacher.subject} icon={<BookOpen className="w-4 h-4" />} />
-              <InfoItem label="Current Role" value={teacher.designation} icon={<Briefcase className="w-4 h-4" />} />
+              <EditableItem label="Phone Number" value={teacher.phone} edit={editMode} onChange={(v) => setTeacher({...teacher, phone: v})} icon={<Phone className="w-4 h-4" />} />
+              <EditableItem label="Date of Joining" type="date" value={teacher.join_date} edit={editMode} onChange={(v) => setTeacher({...teacher, join_date: v})} icon={<Calendar className="w-4 h-4" />} />
+              <EditableItem label="Subject Expert" value={teacher.subject} edit={editMode} onChange={(v) => setTeacher({...teacher, subject: v})} icon={<BookOpen className="w-4 h-4" />} />
+              <EditableItem label="Current Role" value={teacher.designation} edit={editMode} onChange={(v) => setTeacher({...teacher, designation: v})} icon={<Briefcase className="w-4 h-4" />} />
             </div>
           </div>
 
@@ -185,11 +246,11 @@ export default function TeacherDetailsPage() {
               <h2 className="text-sm font-bold uppercase tracking-wider text-white">Family Background</h2>
             </div>
             <div className="space-y-6">
-              <InfoItem label="Father's Name" value={teacher.father_name} icon={<User className="w-4 h-4" />} />
-              <InfoItem label="Mother's Name" value={teacher.mother_name} icon={<User className="w-4 h-4" />} />
-              <InfoItem label="Husband's Name" value={teacher.husband_name} icon={<User className="w-4 h-4" />} />
-              <InfoItem label="Date of Birth" value={teacher.dob} icon={<Calendar className="w-4 h-4" />} />
-              <InfoItem label="Gender" value={teacher.gender} icon={<User className="w-4 h-4" />} />
+              <EditableItem label="Father's Name" value={teacher.father_name} edit={editMode} onChange={(v) => setTeacher({...teacher, father_name: v})} icon={<User className="w-4 h-4" />} />
+              <EditableItem label="Mother's Name" value={teacher.mother_name} edit={editMode} onChange={(v) => setTeacher({...teacher, mother_name: v})} icon={<User className="w-4 h-4" />} />
+              <EditableItem label="Husband's Name" value={teacher.husband_name} edit={editMode} onChange={(v) => setTeacher({...teacher, husband_name: v})} icon={<User className="w-4 h-4" />} />
+              <EditableItem label="Date of Birth" type="date" value={teacher.dob} edit={editMode} onChange={(v) => setTeacher({...teacher, dob: v})} icon={<Calendar className="w-4 h-4" />} />
+              <EditableItem label="Gender" value={teacher.gender} edit={editMode} onChange={(v) => setTeacher({...teacher, gender: v})} icon={<User className="w-4 h-4" />} />
             </div>
           </div>
 
@@ -205,18 +266,8 @@ export default function TeacherDetailsPage() {
               <h2 className="text-sm font-bold uppercase tracking-wider text-white">Contact Addresses</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-                <span className="text-[10px] font-bold uppercase text-zinc-500 mb-2 block">Current Address</span>
-                <p className="text-sm text-zinc-300 leading-relaxed">
-                  {teacher.current_address || <span className="text-zinc-600 italic">No address provided.</span>}
-                </p>
-              </div>
-              <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-                <span className="text-[10px] font-bold uppercase text-zinc-500 mb-2 block">Permanent Address</span>
-                <p className="text-sm text-zinc-300 leading-relaxed">
-                  {teacher.permanent_address || <span className="text-zinc-600 italic">No address provided.</span>}
-                </p>
-              </div>
+              <EditableTextarea label="Current Address" value={teacher.current_address} edit={editMode} onChange={(v) => setTeacher({...teacher, current_address: v})} />
+              <EditableTextarea label="Permanent Address" value={teacher.permanent_address} edit={editMode} onChange={(v) => setTeacher({...teacher, permanent_address: v})} />
             </div>
           </div>
 
@@ -289,18 +340,46 @@ export default function TeacherDetailsPage() {
 }
 
 /* =========================
-   HELPER COMPONENT
+   HELPER COMPONENTS
 ========================= */
-function InfoItem({ label, value, icon }: { label: string; value: string | null; icon: React.ReactNode }) {
+function EditableItem({ label, value, edit, onChange, icon, type = 'text' }: { label: string; value: string | null; edit: boolean; onChange: (v: string) => void; icon: React.ReactNode; type?: string }) {
   return (
     <div className="group">
       <div className="flex items-center gap-2 mb-1.5 text-zinc-500 group-hover:text-indigo-400 transition-colors">
         {icon}
         <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
       </div>
-      <div className="pl-6 text-sm text-white font-medium border-l-2 border-white/10 ml-1.5 py-0.5">
-        {value || <span className="text-zinc-600 italic">N/A</span>}
-      </div>
+      {edit ? (
+        <input 
+          type={type}
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none transition-all"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <div className="pl-6 text-sm text-white font-medium border-l-2 border-white/10 ml-1.5 py-0.5">
+          {value || <span className="text-zinc-600 italic">N/A</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditableTextarea({ label, value, edit, onChange }: { label: string; value: string | null; edit: boolean; onChange: (v: string) => void }) {
+  return (
+    <div className="bg-black/20 p-4 rounded-xl border border-white/5 flex flex-col h-full">
+      <span className="text-[10px] font-bold uppercase text-zinc-500 mb-2 block">{label}</span>
+      {edit ? (
+        <textarea 
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none transition-all min-h-[80px]"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <p className="text-sm text-zinc-300 leading-relaxed">
+          {value || <span className="text-zinc-600 italic">No address provided.</span>}
+        </p>
+      )}
     </div>
   );
 }
