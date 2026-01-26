@@ -12,8 +12,7 @@ import {
 } from 'lucide-react';
 
 /* =========================
-   HELPER: PREMIUM DATE PICKER
-   (Exact logic from PromoteStudentsPage)
+   HELPER: PREMIUM DATE PICKER (FIXED VISIBILITY)
 ========================= */
 function PremiumDatePicker({ label, value, onChange, required = false }: { label: string, value: string, onChange: (val: string) => void, required?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -30,7 +29,7 @@ function PremiumDatePicker({ label, value, onChange, required = false }: { label
     return () => document.removeEventListener("mousedown", clickOutside);
   }, []);
 
-  // Update picker view if external value changes (optional, but good for UX)
+  // Update picker view if external value changes
   useEffect(() => {
     if (value) setPickerDate(new Date(value));
   }, [value]);
@@ -60,6 +59,7 @@ function PremiumDatePicker({ label, value, onChange, required = false }: { label
       </label>
       
       <button 
+        type="button"
         onClick={() => setOpen(!open)}
         className="w-full bg-black/20 border border-white/10 rounded-xl py-2.5 pl-3 pr-4 text-sm text-left flex items-center justify-between hover:border-indigo-500 transition-all group"
       >
@@ -72,18 +72,20 @@ function PremiumDatePicker({ label, value, onChange, required = false }: { label
         <ChevronDown className="w-4 h-4 text-zinc-600 group-hover:text-white transition-colors" />
       </button>
 
-      {/* Glassy Calendar Dropdown */}
+      {/* FIX: Removed backdrop-blur transparency issues. 
+         Using bg-zinc-950 (Solid Dark) + High Z-Index 
+      */}
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 p-4 animate-scale-up backdrop-blur-xl">
+        <div className="absolute top-full left-0 mt-2 w-72 bg-zinc-950 border border-white/10 rounded-xl shadow-2xl shadow-black z-[999] p-4 animate-scale-up">
           {/* Header */}
-          <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
-            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
+          <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
+            <button type="button" onClick={() => changeMonth(-1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="font-bold text-white text-sm">
               {pickerDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
             </span>
-            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
+            <button type="button" onClick={() => changeMonth(1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -107,6 +109,7 @@ function PremiumDatePicker({ label, value, onChange, required = false }: { label
               return (
                 <button 
                   key={i} 
+                  type="button"
                   onClick={() => handleDateSelect(dayNum)}
                   className={`
                     p-1.5 text-xs rounded-lg transition-all font-medium
@@ -230,7 +233,7 @@ export default function AddStudentPage() {
     full_name: '',
     gender: 'Male',
     dob: '',
-    admission_date: '', // Added Admission Date
+    admission_date: '',
     
     // Parents
     father_name: '',
@@ -273,7 +276,12 @@ export default function AddStudentPage() {
         admission_date: form.admission_date || new Date().toISOString().split('T')[0],
         current_address: form.current_address,
         permanent_address: form.permanent_address,
-        // Add other mapped fields as per your schema
+        
+        // Parent Data (Assuming you store this in 'students' or related table)
+        // If stored in 'students':
+        father_name: form.father_name,
+        mother_name: form.mother_name,
+        // ... map other fields accordingly
       });
 
       if (error) throw error;
