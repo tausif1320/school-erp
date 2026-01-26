@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { 
   ArrowLeft, Calendar, Phone, Briefcase, BookOpen, 
-  User, CheckCircle2, Clock, Shield, MapPin, Search, Loader2 
+  User, CheckCircle2, Clock, Shield, MapPin, Users, Loader2 
 } from 'lucide-react';
 
 /* =========================
@@ -27,6 +27,15 @@ type Teacher = {
   phone: string;
   join_date: string;
   status: string;
+  // Added missing fields
+  gender: string;
+  dob: string;
+  father_name: string;
+  mother_name: string;
+  husband_name: string;
+  current_address: string;
+  permanent_address: string;
+  email: string;
 };
 
 /* =========================
@@ -59,7 +68,6 @@ export default function TeacherDetailsPage() {
   }
 
   async function loadAttendance(id: string) {
-    // UPDATED: Query the 'view_teacher_attendance_ist' to get formatted times
     const { data, error } = await supabase
       .from('view_teacher_attendance_ist')
       .select('date, status, check_in_ist, check_out_ist')
@@ -71,12 +79,11 @@ export default function TeacherDetailsPage() {
       return;
     }
 
-    // Map the view columns (check_in_ist) to our component state (check_in)
     const formattedData = data?.map((item: any) => ({
       date: item.date,
       status: item.status,
-      check_in: item.check_in_ist,   // Using the IST string from the View
-      check_out: item.check_out_ist  // Using the IST string from the View
+      check_in: item.check_in_ist,
+      check_out: item.check_out_ist
     })) || [];
 
     setAttendance(formattedData);
@@ -154,14 +161,15 @@ export default function TeacherDetailsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         
-        {/* --- LEFT COLUMN: INFO --- */}
+        {/* --- LEFT COLUMN --- */}
         <div className="space-y-6">
+          
+          {/* PROFESSIONAL DETAILS */}
           <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl">
             <div className="flex items-center gap-2.5 mb-6 border-b border-white/5 pb-4">
               <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400"><User className="w-4 h-4" /></div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-white">Teacher Details</h2>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-white">Professional Info</h2>
             </div>
-            
             <div className="space-y-6">
               <InfoItem label="Phone Number" value={teacher.phone} icon={<Phone className="w-4 h-4" />} />
               <InfoItem label="Date of Joining" value={teacher.join_date} icon={<Calendar className="w-4 h-4" />} />
@@ -169,10 +177,50 @@ export default function TeacherDetailsPage() {
               <InfoItem label="Current Role" value={teacher.designation} icon={<Briefcase className="w-4 h-4" />} />
             </div>
           </div>
+
+          {/* FAMILY BACKGROUND */}
+          <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl">
+            <div className="flex items-center gap-2.5 mb-6 border-b border-white/5 pb-4">
+              <div className="p-2 rounded-lg bg-pink-500/10 text-pink-400"><Users className="w-4 h-4" /></div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-white">Family Background</h2>
+            </div>
+            <div className="space-y-6">
+              <InfoItem label="Father's Name" value={teacher.father_name} icon={<User className="w-4 h-4" />} />
+              <InfoItem label="Mother's Name" value={teacher.mother_name} icon={<User className="w-4 h-4" />} />
+              <InfoItem label="Husband's Name" value={teacher.husband_name} icon={<User className="w-4 h-4" />} />
+              <InfoItem label="Date of Birth" value={teacher.dob} icon={<Calendar className="w-4 h-4" />} />
+              <InfoItem label="Gender" value={teacher.gender} icon={<User className="w-4 h-4" />} />
+            </div>
+          </div>
+
         </div>
 
-        {/* --- RIGHT COLUMN: ATTENDANCE --- */}
+        {/* --- RIGHT COLUMN --- */}
         <div className="xl:col-span-2 space-y-6">
+          
+          {/* ADDRESS DETAILS */}
+          <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl">
+            <div className="flex items-center gap-2.5 mb-6 border-b border-white/5 pb-4">
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400"><MapPin className="w-4 h-4" /></div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-white">Contact Addresses</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+                <span className="text-[10px] font-bold uppercase text-zinc-500 mb-2 block">Current Address</span>
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  {teacher.current_address || <span className="text-zinc-600 italic">No address provided.</span>}
+                </p>
+              </div>
+              <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+                <span className="text-[10px] font-bold uppercase text-zinc-500 mb-2 block">Permanent Address</span>
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  {teacher.permanent_address || <span className="text-zinc-600 italic">No address provided.</span>}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ATTENDANCE HISTORY */}
           <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl min-h-[400px] flex flex-col">
             <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
               <div className="flex items-center gap-2.5">
