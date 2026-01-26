@@ -1,18 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { 
   ArrowLeft, User, Mail, Phone, Briefcase, 
   Calendar, Users, MapPin, Save, Loader2, 
-  GraduationCap, Hash, FileText, ChevronDown
+  GraduationCap, Hash, FileText, ChevronDown,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 /* =========================
    HELPER COMPONENTS
 ========================= */
+
+// 1. Section Container
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-3xl shadow-xl">
@@ -27,6 +30,7 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
+// 2. Standard Input
 function InputGroup({ label, icon, value, onChange, placeholder, type = 'text', required = false, className = '' }: any) {
   return (
     <div className={`space-y-1.5 ${className}`}>
@@ -49,6 +53,7 @@ function InputGroup({ label, icon, value, onChange, placeholder, type = 'text', 
   );
 }
 
+// 3. Dropdown Select
 function SelectGroup({ label, icon, value, onChange, options, required = false }: any) {
   return (
     <div className="space-y-1.5">
@@ -76,6 +81,7 @@ function SelectGroup({ label, icon, value, onChange, options, required = false }
   );
 }
 
+// 4. Text Area
 function TextareaGroup({ label, icon, value, onChange, placeholder }: any) {
   return (
     <div className="space-y-1.5 col-span-1 md:col-span-2">
@@ -93,6 +99,103 @@ function TextareaGroup({ label, icon, value, onChange, placeholder }: any) {
           placeholder={placeholder}
         />
       </div>
+    </div>
+  );
+}
+
+// 5. PREMIUM DATE PICKER (The requested improvement)
+function DateGroup({ label, value, onChange, required = false }: any) {
+  const [open, setOpen] = useState(false);
+  // Default to today if no value, or parse the existing string value
+  const [pickerDate, setPickerDate] = useState(value ? new Date(value) : new Date());
+  const ref = useRef<any>(null);
+
+  // Close on click outside
+  useEffect(() => {
+    const clickOutside = (e: any) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", clickOutside);
+    return () => document.removeEventListener("mousedown", clickOutside);
+  }, []);
+
+  // Handle date selection from grid
+  const handleSelect = (day: number) => {
+    const y = pickerDate.getFullYear();
+    const m = String(pickerDate.getMonth() + 1).padStart(2, '0');
+    const d = String(day).padStart(2, '0');
+    // Return format YYYY-MM-DD
+    onChange({ target: { value: `${y}-${m}-${d}` } }); 
+    setOpen(false);
+  };
+
+  // Change month navigation
+  const changeMonth = (offset: number) => {
+    setPickerDate(new Date(pickerDate.getFullYear(), pickerDate.getMonth() + offset, 1));
+  };
+
+  // Calendar Math
+  const daysInMonth = new Date(pickerDate.getFullYear(), pickerDate.getMonth() + 1, 0).getDate();
+  const startDay = new Date(pickerDate.getFullYear(), pickerDate.getMonth(), 1).getDay();
+
+  return (
+    <div className="space-y-1.5 relative" ref={ref}>
+      <label className="text-xs text-zinc-400 font-bold ml-1 uppercase flex items-center gap-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      
+      <button 
+        onClick={() => setOpen(!open)}
+        className="w-full bg-black/20 border border-white/10 rounded-xl py-2.5 pl-3 pr-4 text-sm text-left flex items-center justify-between hover:border-indigo-500 transition-all group"
+      >
+        <div className="flex items-center gap-3">
+          <Calendar className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" />
+          <span className={value ? "text-white font-medium" : "text-zinc-600"}>
+            {value || 'Select Date'}
+          </span>
+        </div>
+        <ChevronDown className="w-4 h-4 text-zinc-600 group-hover:text-white" />
+      </button>
+
+      {/* Calendar Dropdown */}
+      {open && (
+        <div className="absolute top-full left-0 mt-2 w-full sm:w-72 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 p-4 animate-scale-up">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
+            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="font-bold text-white text-sm">
+              {pickerDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            </span>
+            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white/10 rounded text-zinc-400 hover:text-white transition-colors">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center mb-2">
+            {['S','M','T','W','T','F','S'].map(d => (
+              <span key={d} className="text-[10px] text-zinc-500 font-bold">{d}</span>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: startDay }).map((_, i) => <div key={`empty-${i}`} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => (
+              <button 
+                key={i} 
+                onClick={() => handleSelect(i + 1)}
+                className={`
+                  p-1.5 text-xs rounded-lg transition-all font-medium
+                  ${value === `${pickerDate.getFullYear()}-${String(pickerDate.getMonth()+1).padStart(2,'0')}-${String(i+1).padStart(2,'0')}` 
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
+                    : 'text-zinc-300 hover:bg-white/10 hover:text-white'}
+                `}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -144,7 +247,6 @@ export default function AddStudentPage() {
     try {
       setLoading(true);
 
-      // Example DB Call - Replace with your actual insert logic
       const { error } = await supabase.from('students').insert({
         admission_number: form.admission_number,
         roll_number: form.roll_number || null,
@@ -154,10 +256,9 @@ export default function AddStudentPage() {
         academic_year: form.academic_year,
         gender: form.gender,
         dob: form.dob || null,
-        // Add other fields as per your schema structure (e.g., related tables for parents)
         current_address: form.current_address,
         permanent_address: form.permanent_address,
-        // ... mapped fields
+        // Add other mapped fields as per your schema
       });
 
       if (error) throw error;
@@ -234,8 +335,10 @@ export default function AddStudentPage() {
             value={form.gender} onChange={(e: any) => setForm({ ...form, gender: e.target.value })}
             options={[{value: 'Male', label: 'Male'}, {value: 'Female', label: 'Female'}, {value: 'Other', label: 'Other'}]}
           />
-          <InputGroup 
-            label="Date of Birth" type="date" icon={<Calendar className="w-4 h-4" />} 
+          
+          {/* UPDATED: Premium Date Picker */}
+          <DateGroup 
+            label="Date of Birth" required
             value={form.dob} onChange={(e: any) => setForm({ ...form, dob: e.target.value })} 
           />
         </Section>
