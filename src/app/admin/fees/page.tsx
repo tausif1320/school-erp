@@ -28,18 +28,16 @@ export default function FeesPage() {
   const [month, setMonth] = useState(''); 
   const [academicYear, setAcademicYear] = useState('');
   
-  // Data States
   const [fees, setFees] = useState<FeeRow[]>([]);
-  const [filteredFees, setFilteredFees] = useState<FeeRow[]>([]); // For search/filter results
+  const [filteredFees, setFilteredFees] = useState<FeeRow[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
-  const [globalSearch, setGlobalSearch] = useState(''); // Universal Search
+  const [globalSearch, setGlobalSearch] = useState(''); 
   
   const [editingFee, setEditingFee] = useState<FeeRow | null>(null);
   const [paidInput, setPaidInput] = useState('');
 
-  // UI States
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -84,12 +82,10 @@ export default function FeesPage() {
     setLoading(false);
   }
 
-  // Load initial data on filter change
   useEffect(() => {
     loadFees();
   }, [month, academicYear, statusFilter]);
 
-  // Handle Universal Search (Client-side)
   useEffect(() => {
     if (!globalSearch) {
       setFilteredFees(fees);
@@ -104,7 +100,6 @@ export default function FeesPage() {
     }
   }, [globalSearch, fees]);
 
-  // Click Outside Handlers
   useEffect(() => {
     function handleClickOutside(event: any) {
       if (datePickerRef.current && !datePickerRef.current.contains(event.target)) setShowDatePicker(false);
@@ -180,7 +175,7 @@ export default function FeesPage() {
       startY: 20,
       theme: 'grid',
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [79, 70, 229] } // Indigo color
+      headStyles: { fillColor: [79, 70, 229] }
     });
 
     doc.save(`fees_${month}.pdf`);
@@ -196,7 +191,7 @@ export default function FeesPage() {
     for (const row of filteredFees) {
       const values = [
         row.admission_number,
-        `"${row.full_name}"`, // Quote name to handle commas
+        `"${row.full_name}"`,
         row.class,
         row.total_amount,
         row.paid_amount,
@@ -241,34 +236,41 @@ export default function FeesPage() {
           <p className="text-zinc-500 text-sm mt-1">Manage monthly tuition records</p>
         </div>
         
+        {/* Buttons Group (Fixed for Mobile) */}
         <div className="flex gap-3 w-full md:w-auto">
-          {/* Export Dropdown */}
-          <div className="relative" ref={exportRef}>
+          
+          {/* 1. Export Button & Menu */}
+          <div className="relative flex-1 md:flex-none" ref={exportRef}>
             <button 
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="h-full flex items-center gap-2 bg-zinc-900 border border-white/10 hover:bg-white/5 text-zinc-300 px-4 py-2.5 rounded-xl font-medium transition-all"
+              className="w-full md:w-auto flex items-center justify-center gap-2 bg-zinc-900 border border-white/10 hover:bg-white/5 text-zinc-300 px-4 py-2.5 rounded-xl font-medium transition-all"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export</span>
+              <span>Export</span>
               <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
             </button>
             
             {showExportMenu && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-scale-up">
+              <div className="absolute top-full right-0 md:left-auto md:right-0 mt-2 w-full md:w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-scale-up">
                 <button onClick={exportToPDF} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/5 text-left transition-colors">
-                  <FileText className="w-4 h-4 text-red-400" /> Export as PDF
+                  <FileText className="w-4 h-4 text-red-400" /> PDF
                 </button>
                 <div className="h-px bg-white/5"></div>
                 <button onClick={exportToExcel} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/5 text-left transition-colors">
-                  <TableIcon className="w-4 h-4 text-green-400" /> Export as Excel
+                  <TableIcon className="w-4 h-4 text-green-400" /> Excel
                 </button>
               </div>
             )}
           </div>
 
-          <button onClick={generateFees} disabled={loading} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {/* 2. Generate Button */}
+          <button 
+            onClick={generateFees} 
+            disabled={loading} 
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            <span className="whitespace-nowrap">Generate Fees</span>
+            <span className="whitespace-nowrap">Generate</span>
           </button>
         </div>
       </div>
@@ -276,7 +278,7 @@ export default function FeesPage() {
       {/* FILTER BAR */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-4 rounded-2xl relative z-10">
         
-        {/* 1. CUSTOM MONTH PICKER */}
+        {/* Month Picker */}
         <div className="relative" ref={datePickerRef}>
           <button 
             type="button"
@@ -316,13 +318,13 @@ export default function FeesPage() {
           )}
         </div>
 
-        {/* 2. ACADEMIC YEAR */}
+        {/* Academic Year */}
         <div className="relative group">
           <Calendar className="absolute left-3 top-3.5 w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
           <input placeholder="Year (e.g. 2026-2027)" className="w-full bg-black/20 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-300 focus:bg-black/40 focus:border-indigo-500/50 outline-none transition-all placeholder:text-zinc-600" value={academicYear} onChange={e => setAcademicYear(e.target.value)} />
         </div>
 
-        {/* 3. STATUS */}
+        {/* Status */}
         <div className="relative group">
           <Filter className="absolute left-3 top-3.5 w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
           <select className="w-full bg-black/20 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-300 focus:bg-black/40 focus:border-indigo-500/50 outline-none transition-all appearance-none cursor-pointer" onChange={e => setStatusFilter(e.target.value)} value={statusFilter}>
@@ -334,7 +336,7 @@ export default function FeesPage() {
           <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-zinc-600 pointer-events-none" />
         </div>
 
-        {/* 4. UNIVERSAL SEARCH (Replaces Class Filter) */}
+        {/* Universal Search */}
         <div className="relative group">
           <Search className="absolute left-3 top-3.5 w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
           <input 
@@ -345,7 +347,7 @@ export default function FeesPage() {
         </div>
       </div>
 
-      {/* --- TABLE --- */}
+      {/* TABLE */}
       <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-xl z-0 relative">
         {loading ? (
           <div className="p-20 flex flex-col items-center justify-center text-zinc-500 space-y-4">
@@ -375,16 +377,8 @@ export default function FeesPage() {
               <tbody className="divide-y divide-white/5">
                 {filteredFees.map((f) => (
                   <tr key={f.id} className="group hover:bg-white/5 transition-colors">
-                    {/* NEW COLUMN: Admission Number */}
-                    <td className="px-6 py-4 text-zinc-400 font-mono text-xs">
-                      {f.admission_number}
-                    </td>
-                    
-                    {/* Student Name */}
-                    <td className="px-6 py-4 font-medium text-white">
-                      {f.full_name}
-                    </td>
-
+                    <td className="px-6 py-4 text-zinc-400 font-mono text-xs">{f.admission_number}</td>
+                    <td className="px-6 py-4 font-medium text-white">{f.full_name}</td>
                     <td className="px-6 py-4"><span className="bg-white/5 px-2 py-1 rounded text-xs border border-white/5 text-zinc-300">{f.class}</span></td>
                     <td className="px-6 py-4 text-zinc-300 font-mono">₹{f.total_amount.toLocaleString()}</td>
                     <td className="px-6 py-4 font-mono"><span className={`${f.paid_amount > 0 ? 'text-emerald-400' : 'text-zinc-500'}`}>₹{f.paid_amount.toLocaleString()}</span></td>
@@ -400,7 +394,7 @@ export default function FeesPage() {
         )}
       </div>
 
-      {/* --- EDIT MODAL --- */}
+      {/* EDIT MODAL */}
       {editingFee && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-zinc-900 border border-white/10 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
