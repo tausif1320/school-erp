@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
-  Search, Filter, Plus, Calendar, Download, FileText, Table as TableIcon, 
+  Search, Filter, Calendar, Download, FileText, Table as TableIcon, 
   ChevronDown, Shirt, ShoppingCart, IndianRupee, Loader2, X, Check, 
-  ChevronLeft, ChevronRight, User, ChevronRight as ChevronRightIcon, Ruler
+  ChevronLeft, ChevronRight, ChevronRight as ChevronRightIcon, Ruler
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -19,7 +19,7 @@ type Student = {
   id: string;
   admission_number: string;
   full_name: string;
-  class: string; // Added for filter UI
+  class: string;
 };
 
 type UniformItem = {
@@ -71,7 +71,6 @@ export default function IssueUniformPage() {
   const [issuing, setIssuing] = useState(false);
 
   /* ---------- Filters ---------- */
-  const [filterStudent, setFilterStudent] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -101,7 +100,6 @@ export default function IssueUniformPage() {
      LOAD DATA
   ========================= */
   async function loadStudents() {
-    // Added class for UI filtering
     const { data } = await supabase.from('students').select('id, admission_number, full_name, class').order('full_name');
     setStudents(data ?? []);
   }
@@ -163,7 +161,6 @@ export default function IssueUniformPage() {
   ========================= */
   useEffect(() => {
     let filtered = [...allRows];
-    // Note: Student filter handled by specific logic if needed, but removed from main UI for simplicity as per Notebooks example
     if (filterStatus) filtered = filtered.filter(r => r.status === filterStatus);
     if (fromDate) filtered = filtered.filter(r => new Date(r.issued_at_raw) >= new Date(fromDate));
     if (toDate) filtered = filtered.filter(r => new Date(r.issued_at_raw) <= new Date(toDate));
@@ -416,9 +413,16 @@ export default function IssueUniformPage() {
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${r.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : r.status === 'partial' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>{r.status}</span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            {r.status !== 'paid' && (
-                              <button onClick={() => setPaymentModal({ open: true, issueId: r.id, currentPaid: r.paid, total: r.total })} className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded transition-colors">Pay</button>
-                            )}
+                            <button 
+                              onClick={() => setPaymentModal({ open: true, issueId: r.id, currentPaid: r.paid, total: r.total })}
+                              className={`text-xs px-3 py-1.5 rounded transition-colors border ${
+                                r.status === 'paid' 
+                                  ? 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700 hover:text-white' 
+                                  : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20'
+                              }`}
+                            >
+                              {r.status === 'paid' ? 'View' : 'Pay'}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -508,7 +512,6 @@ export default function IssueUniformPage() {
 
 /* =========================
    HELPER: CUSTOM DATE PICKER
-   Replicates logic from PromoteStudentsPage for From/To fields
 ========================= */
 function DatePicker({ label, value, onChange }: { label: string; value: string; onChange: (d: string) => void }) {
   const [open, setOpen] = useState(false);
