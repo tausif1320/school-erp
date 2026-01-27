@@ -281,7 +281,7 @@ export default function AdminDashboard() {
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">Live System Status</span>
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Command Center</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Admin Dashboard</h1>
           <p className="text-zinc-400 text-sm mt-1">Real-time overview of institution performance.</p>
         </div>
       </div>

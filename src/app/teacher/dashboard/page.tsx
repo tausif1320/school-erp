@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { 
   CheckCircle, XCircle, Clock, Calendar, 
   LogOut, Briefcase, ChevronDown, Loader2, 
   BarChart3, AlertCircle, ChevronLeft, ChevronRight,
-  CalendarDays, ArrowRight
+  CalendarDays, ArrowRight, Sparkles, Coffee
 } from 'lucide-react';
 
 /* =========================
@@ -17,16 +17,14 @@ type AttendanceRecord = {
   id: string;
   date: string;
   status: 'present' | 'absent';
-  check_in_ist: string | null; // ISO string or Formatted String from DB
+  check_in_ist: string | null;
   check_out_ist: string | null;
 };
 
-// Get today's date for logic comparison (YYYY-MM-DD)
 function getISTDateString() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
 
-// Display Date: "27 Jan 2026"
 function formatDisplayDate(dateStr: string) {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('en-IN', { 
@@ -34,75 +32,103 @@ function formatDisplayDate(dateStr: string) {
   });
 }
 
-// Display Time Only: "06:30:46 PM"
 function formatTimeOnly(timeStr: string | null) {
   if (!timeStr) return '--:--';
-  // Attempt to parse as Date object
   const date = new Date(timeStr);
-  
-  // Check if valid date object
   if (!isNaN(date.getTime())) {
     return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true 
     });
   }
-  
-  // If DB returns a pre-formatted string like "27-Jan-2026 06:30:46 PM", split it
   if (timeStr.includes(' ')) {
     const parts = timeStr.split(' ');
-    // Assuming format "Date Time AM/PM" or "Date Time"
-    if (parts.length >= 2) {
-      // Return everything after the date part
-      return parts.slice(1).join(' ');
-    }
+    if (parts.length >= 2) return parts.slice(1).join(' ');
   }
-  
   return timeStr;
 }
 
 /* =========================
-   COMPONENT
+   PREMIUM 3D STAT CARD
+========================= */
+function PremiumStatCard({ label, value, icon, color, subText }: any) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setRotation({ x: y * -10, y: x * 10 });
+  };
+
+  const colors: any = {
+    indigo: { bg: 'from-indigo-500/20 to-violet-600/5', border: 'border-indigo-500/20', icon: 'text-indigo-400', glow: 'shadow-indigo-500/20' },
+    emerald: { bg: 'from-emerald-500/20 to-teal-600/5', border: 'border-emerald-500/20', icon: 'text-emerald-400', glow: 'shadow-emerald-500/20' },
+    rose: { bg: 'from-rose-500/20 to-red-600/5', border: 'border-rose-500/20', icon: 'text-rose-400', glow: 'shadow-rose-500/20' },
+    amber: { bg: 'from-amber-500/20 to-orange-600/5', border: 'border-amber-500/20', icon: 'text-amber-400', glow: 'shadow-amber-500/20' },
+  };
+  const theme = colors[color] || colors.indigo;
+
+  return (
+    <div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setRotation({ x: 0, y: 0 })}
+      style={{ transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`, transformStyle: 'preserve-3d' }}
+      className={`
+        relative group overflow-hidden rounded-3xl p-6 h-36
+        bg-zinc-900/40 backdrop-blur-xl border border-white/5
+        transition-all duration-300 ease-out
+        hover:shadow-2xl hover:border-white/10
+      `}
+    >
+      {/* Background Gradient */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${theme.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+      
+      <div className="relative z-10 h-full flex flex-col justify-between transform transition-transform duration-200" style={{ transform: "translateZ(20px)" }}>
+        <div className="flex justify-between items-start">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 group-hover:text-zinc-400 transition-colors">{label}</span>
+            <span className="text-zinc-600 text-[10px] font-medium mt-0.5">{subText}</span>
+          </div>
+          <div className={`p-2.5 rounded-2xl bg-white/5 border border-white/5 ${theme.icon} group-hover:scale-110 transition-transform`}>
+            {icon}
+          </div>
+        </div>
+        <div className="flex items-end gap-2">
+           <span className="text-4xl font-bold text-white tracking-tighter">{value}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================
+   MAIN COMPONENT
 ========================= */
 export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'logs' | 'absent'>('overview');
-  
-  // Data State
   const [todayRecord, setTodayRecord] = useState<any>(null);
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
   const [stats, setStats] = useState({ present: 0, absent: 0, workingDays: 0, attendanceRate: 0 });
-  
-  // Filter State
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-
-  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
 
-  useEffect(() => {
-    initDashboard();
-  }, [selectedMonth]);
+  useEffect(() => { initDashboard(); }, [selectedMonth]);
 
   async function initDashboard() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    const { data: teacher } = await supabase.from('teachers').select('id').eq('user_id', user.id).single();
+    const { data: teacher } = await supabase.from('teachers').select('id, full_name').eq('user_id', user.id).single();
     if (!teacher) return;
 
-    // 1. Today's Status
     const todayIST = getISTDateString();
-    const { data: todayData } = await supabase
-      .from('view_teacher_attendance_ist')
-      .select('*')
-      .eq('teacher_id', teacher.id)
-      .eq('date', todayIST)
-      .maybeSingle();
-
+    const { data: todayData } = await supabase.from('view_teacher_attendance_ist').select('*').eq('teacher_id', teacher.id).eq('date', todayIST).maybeSingle();
     setTodayRecord(todayData);
-
-    // 2. Fetch History
     await fetchHistory(teacher.id, selectedMonth);
     setLoading(false);
   }
@@ -110,45 +136,23 @@ export default function TeacherDashboard() {
   async function fetchHistory(tid: string, monthStr: string) {
     const startObj = new Date(monthStr + "-01");
     const endObj = new Date(startObj.getFullYear(), startObj.getMonth() + 1, 0);
-
-    const { data } = await supabase
-      .from('view_teacher_attendance_ist')
-      .select('*')
-      .eq('teacher_id', tid)
-      .gte('date', startObj.toISOString().slice(0, 10))
-      .lte('date', endObj.toISOString().slice(0, 10))
-      .order('date', { ascending: false });
-
+    const { data } = await supabase.from('view_teacher_attendance_ist').select('*').eq('teacher_id', tid).gte('date', startObj.toISOString().slice(0, 10)).lte('date', endObj.toISOString().slice(0, 10)).order('date', { ascending: false });
     const records = data || [];
     setHistory(records);
     setCurrentPage(1); 
-
     const present = records.filter(r => r.status === 'present').length;
     const absent = records.filter(r => r.status === 'absent').length;
     const total = present + absent;
-    setStats({ 
-      present, 
-      absent, 
-      workingDays: total,
-      attendanceRate: total > 0 ? Math.round((present / total) * 100) : 0
-    });
+    setStats({ present, absent, workingDays: total, attendanceRate: total > 0 ? Math.round((present / total) * 100) : 0 });
   }
 
   async function handleCheckout() {
     if (!todayRecord) return;
-    const { error } = await supabase
-      .from('teacher_attendance')
-      .update({ check_out: new Date().toISOString() })
-      .eq('id', todayRecord.id);
-
-    if (error) toast.error('Error checking out');
-    else {
-      toast.success('Checked out successfully');
-      initDashboard();
-    }
+    const { error } = await supabase.from('teacher_attendance').update({ check_out: new Date().toISOString() }).eq('id', todayRecord.id);
+    if (error) toast.error('Check-out failed');
+    else { toast.success('Shift ended successfully'); initDashboard(); }
   }
 
-  // --- PAGINATION ---
   const getPaginatedData = (data: AttendanceRecord[]) => {
     const start = (currentPage - 1) * rowsPerPage;
     return data.slice(start, start + rowsPerPage);
@@ -157,265 +161,246 @@ export default function TeacherDashboard() {
 
   if (loading) return (
     <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
-      <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-500 rounded-full animate-spin"></div>
-      <p className="text-zinc-500 text-sm font-medium animate-pulse">Syncing Dashboard...</p>
+      <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+      <p className="text-zinc-500 text-sm font-medium animate-pulse tracking-wide">Syncing Workspace...</p>
     </div>
   );
 
   return (
-    <div className="space-y-8 animate-fade-in-up pb-24 md:pb-10 max-w-7xl mx-auto">
+    <div className="space-y-10 animate-fade-in-up pb-24 md:pb-10 max-w-7xl mx-auto perspective-1000">
       
       {/* --- HEADER --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-white/5 pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-2">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Teacher Dashboard</h1>
-          <p className="text-zinc-400 text-sm mt-1">Manage your attendance and activity logs.</p>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Workspace Active</span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-zinc-400 tracking-tighter">
+            Faculty Dashboard
+          </h1>
+          <p className="text-zinc-400 text-sm mt-2 font-medium">Welcome back. Here is your daily overview.</p>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative group w-full md:w-auto">
-            <div className="absolute left-3 top-2.5 text-zinc-500 pointer-events-none z-10"><CalendarDays className="w-4 h-4" /></div>
-            <input 
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full md:w-48 bg-zinc-900 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:border-indigo-500 outline-none cursor-pointer hover:bg-zinc-800 transition-colors [color-scheme:dark] font-medium"
-            />
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          {/* Custom Date Picker */}
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+            <div className="relative flex items-center bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5">
+               <CalendarDays className="w-4 h-4 text-zinc-400 mr-3" />
+               <input 
+                 type="month"
+                 value={selectedMonth}
+                 onChange={(e) => setSelectedMonth(e.target.value)}
+                 className="bg-transparent border-none outline-none text-sm text-white w-32 cursor-pointer font-medium"
+               />
+            </div>
           </div>
 
           {todayRecord && !todayRecord.raw_check_out && (
             <button 
               onClick={handleCheckout} 
-              className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-lg hover:shadow-red-900/20"
+              className="group relative px-6 py-2.5 rounded-xl font-bold text-sm text-white overflow-hidden"
             >
-              <LogOut className="w-4 h-4" /> End Shift
+              <div className="absolute inset-0 bg-gradient-to-r from-rose-600 to-orange-600 transition-all duration-300 group-hover:scale-105"></div>
+              <div className="relative flex items-center gap-2">
+                 <LogOut className="w-4 h-4" /> End Shift
+              </div>
             </button>
           )}
         </div>
       </div>
 
-      {/* --- STATS CARDS --- */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard label="Attendance Rate" value={`${stats.attendanceRate}%`} icon={<BarChart3 className="w-5 h-5" />} color="indigo" />
-        <StatCard label="Days Present" value={stats.present} icon={<CheckCircle className="w-5 h-5" />} color="emerald" />
-        <StatCard label="Days Absent" value={stats.absent} icon={<XCircle className="w-5 h-5" />} color="red" />
-        <StatCard label="Working Days" value={stats.workingDays} icon={<Briefcase className="w-5 h-5" />} color="zinc" />
+      {/* --- 3D METRIC GRID --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <PremiumStatCard label="Attendance" subText="Monthly Rate" value={`${stats.attendanceRate}%`} icon={<BarChart3 className="w-5 h-5" />} color="indigo" />
+        <PremiumStatCard label="Present" subText="Days Active" value={stats.present} icon={<CheckCircle className="w-5 h-5" />} color="emerald" />
+        <PremiumStatCard label="Absent" subText="Leaves Taken" value={stats.absent} icon={<XCircle className="w-5 h-5" />} color="rose" />
+        <PremiumStatCard label="Working Days" subText="This Month" value={stats.workingDays} icon={<Briefcase className="w-5 h-5" />} color="amber" />
       </div>
 
-      {/* --- CONTENT TABS --- */}
-      <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-xl min-h-[500px] flex flex-col">
-        
-        <div className="flex items-center gap-1 p-2 border-b border-white/5 bg-white/5 overflow-x-auto">
-          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label="Overview" icon={<BarChart3 className="w-4 h-4" />} />
-          <TabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} label="Daily Logs" icon={<Clock className="w-4 h-4" />} />
-          <TabButton active={activeTab === 'absent'} onClick={() => setActiveTab('absent')} label="Absent Report" icon={<AlertCircle className="w-4 h-4" />} />
+      {/* --- MAIN INTERFACE --- */}
+      <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] overflow-hidden shadow-2xl min-h-[600px] flex flex-col relative">
+        {/* Decorative Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"></div>
+
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-2 p-3 border-b border-white/5">
+          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label="Overview" />
+          <TabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} label="History Logs" />
+          <TabButton active={activeTab === 'absent'} onClick={() => setActiveTab('absent')} label="Absence Report" />
         </div>
 
-        <div className="p-0 flex-1 bg-zinc-950/30 flex flex-col">
+        <div className="flex-1 p-0 relative">
           
-          {/* 1. OVERVIEW TAB */}
+          {/* 1. OVERVIEW: THE HERO CARD */}
           {activeTab === 'overview' && (
-            <div className="p-6 space-y-8 animate-fade-in">
-              
-              {/* TODAY'S STATUS CARD */}
-              <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-white/20 transition-all shadow-2xl">
-                {/* Decoration */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+            <div className="p-8 h-full flex items-center justify-center animate-fade-in">
+              <div className="w-full relative overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl group">
                 
-                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                {/* Dynamic Background */}
+                <div className="absolute inset-0">
+                  <div className={`absolute inset-0 bg-gradient-to-br ${todayRecord?.raw_check_out ? 'from-emerald-900/20 to-teal-900/10' : 'from-indigo-900/20 to-purple-900/10'} opacity-50`}></div>
+                  <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/5 blur-[80px] rounded-full animate-pulse-slow"></div>
+                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+                </div>
+
+                <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-10">
                   
-                  {/* Left: Status Indicator */}
-                  <div className="flex items-center gap-6">
-                    <div className={`
-                      w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg border border-white/5
-                      ${todayRecord 
-                        ? (todayRecord.raw_check_out 
-                          ? 'bg-emerald-500/10 text-emerald-400' 
-                          : 'bg-amber-500/10 text-amber-400') 
-                        : 'bg-zinc-800 text-zinc-500'}
-                    `}>
-                      {todayRecord ? (todayRecord.raw_check_out ? <CheckCircle className="w-10 h-10" /> : <Clock className="w-10 h-10 animate-pulse" />) : <XCircle className="w-10 h-10" />}
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">
-                        {todayRecord ? new Date().toLocaleDateString('en-IN', { weekday: 'long' }) : 'Today'}
-                      </h3>
-                      <p className="text-3xl font-bold text-white tracking-tight">
-                        {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </p>
-                      <p className={`text-sm font-bold mt-2 ${todayRecord ? (todayRecord.raw_check_out ? 'text-emerald-400' : 'text-amber-400') : 'text-zinc-500'}`}>
-                        {todayRecord ? (todayRecord.raw_check_out ? 'Shift Completed' : 'Currently Checked In') : 'Not Checked In'}
-                      </p>
-                    </div>
+                  {/* Status Circle */}
+                  <div className="flex items-center gap-8">
+                     <div className="relative">
+                        <div className={`absolute inset-0 rounded-full blur-xl opacity-40 ${todayRecord ? (todayRecord.raw_check_out ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-zinc-500'}`}></div>
+                        <div className={`
+                          relative w-24 h-24 rounded-full flex items-center justify-center
+                          bg-gradient-to-b from-white/10 to-white/5 border border-white/10 backdrop-blur-md
+                          shadow-[0_8px_32px_rgba(0,0,0,0.5)]
+                        `}>
+                          {todayRecord ? (todayRecord.raw_check_out ? <CheckCircle className="w-10 h-10 text-emerald-400" /> : <Clock className="w-10 h-10 text-amber-400 animate-pulse" />) : <Coffee className="w-10 h-10 text-zinc-500" />}
+                        </div>
+                     </div>
+                     
+                     <div>
+                       <div className="flex items-center gap-2 mb-2">
+                         <Sparkles className="w-4 h-4 text-amber-300" />
+                         <span className="text-xs font-bold text-amber-300 uppercase tracking-widest">
+                           {todayRecord ? (todayRecord.raw_check_out ? 'Shift Complete' : 'Active Shift') : 'Ready to Start'}
+                         </span>
+                       </div>
+                       <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tighter mb-1">
+                         {new Date().toLocaleDateString('en-IN', { weekday: 'long' })}
+                       </h2>
+                       <p className="text-zinc-400 font-medium">
+                         {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                       </p>
+                     </div>
                   </div>
 
-                  {/* Right: Timings (The requested change) */}
+                  {/* Timing Details */}
                   {todayRecord ? (
-                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                      <div className="flex-1 bg-black/40 border border-white/5 rounded-xl p-4 min-w-[140px]">
-                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Check In Time</p>
-                        <p className="text-xl font-mono font-bold text-emerald-400">
-                          {formatTimeOnly(todayRecord.check_in_ist)}
-                        </p>
-                      </div>
-                      
-                      <div className="hidden sm:flex items-center justify-center text-zinc-600">
-                        <ArrowRight className="w-5 h-5" />
-                      </div>
-
-                      <div className="flex-1 bg-black/40 border border-white/5 rounded-xl p-4 min-w-[140px]">
-                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Check Out Time</p>
-                        <p className={`text-xl font-mono font-bold ${todayRecord.check_out_ist ? 'text-amber-400' : 'text-zinc-600'}`}>
-                          {todayRecord.check_out_ist ? formatTimeOnly(todayRecord.check_out_ist) : '--:--:--'}
-                        </p>
-                      </div>
+                    <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
+                      <TimeBox label="Check In" time={formatTimeOnly(todayRecord.check_in_ist)} active={true} />
+                      <div className="text-zinc-600"><ArrowRight className="w-5 h-5" /></div>
+                      <TimeBox label="Check Out" time={todayRecord.check_out_ist ? formatTimeOnly(todayRecord.check_out_ist) : '--:--'} active={!!todayRecord.check_out_ist} />
                     </div>
                   ) : (
-                    <div className="bg-zinc-800/30 border border-white/5 rounded-xl p-6 text-center w-full md:w-auto min-w-[300px]">
-                      <p className="text-zinc-500 text-sm">Please scan the campus QR code to verify your location and start your shift.</p>
+                    <div className="px-8 py-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-400 text-sm font-medium">
+                      Scan QR to begin your day.
                     </div>
                   )}
-
                 </div>
               </div>
             </div>
           )}
 
-          {/* 2. DAILY LOGS TAB */}
+          {/* 2. HISTORY LOGS */}
           {activeTab === 'logs' && (
             <div className="flex flex-col h-full animate-fade-in">
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-white/5 text-xs uppercase text-zinc-400 font-semibold border-b border-white/5">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="text-[10px] font-bold uppercase text-zinc-500 tracking-widest bg-white/5 border-b border-white/5">
                     <tr>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Check In</th>
-                      <th className="px-6 py-4">Check Out</th>
+                      <th className="px-8 py-4">Date</th>
+                      <th className="px-8 py-4">Status</th>
+                      <th className="px-8 py-4">In Time</th>
+                      <th className="px-8 py-4">Out Time</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {getPaginatedData(history).map((record) => (
-                      <tr key={record.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="px-6 py-4 font-mono text-zinc-300 group-hover:text-white transition-colors">
-                          {formatDisplayDate(record.date)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <StatusBadge status={record.status} />
-                        </td>
-                        <td className="px-6 py-4 text-zinc-400 font-mono">
-                          {record.check_in_ist ? (
-                            <span className="text-emerald-400 bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/10">
-                              {formatTimeOnly(record.check_in_ist)}
-                            </span>
-                          ) : '-'}
-                        </td>
-                        <td className="px-6 py-4 text-zinc-400 font-mono">
-                          {record.check_out_ist ? (
-                            <span className="text-amber-400 bg-amber-500/5 px-2 py-1 rounded border border-amber-500/10">
-                              {formatTimeOnly(record.check_out_ist)}
-                            </span>
-                          ) : '-'}
-                        </td>
+                      <tr key={record.id} className="group hover:bg-white/5 transition-colors">
+                        <td className="px-8 py-4 text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">{formatDisplayDate(record.date)}</td>
+                        <td className="px-8 py-4"><StatusBadge status={record.status} /></td>
+                        <td className="px-8 py-4 text-sm font-mono text-zinc-400">{record.check_in_ist ? <span className="text-emerald-400">{formatTimeOnly(record.check_in_ist)}</span> : '-'}</td>
+                        <td className="px-8 py-4 text-sm font-mono text-zinc-400">{record.check_out_ist ? <span className="text-amber-400">{formatTimeOnly(record.check_out_ist)}</span> : '-'}</td>
                       </tr>
                     ))}
-                    {history.length === 0 && (
-                      <tr><td colSpan={4} className="px-6 py-12 text-center text-zinc-500">No records found.</td></tr>
-                    )}
+                    {history.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-zinc-500">No logs found.</td></tr>}
                   </tbody>
                 </table>
               </div>
-              <PaginationFooter currentPage={currentPage} totalPages={totalPages(history.length)} onPageChange={setCurrentPage} totalItems={history.length} />
+              <PaginationFooter currentPage={currentPage} totalPages={totalPages(history.length)} onPageChange={setCurrentPage} />
             </div>
           )}
 
-          {/* 3. ABSENT REPORT TAB */}
+          {/* 3. ABSENT REPORT */}
           {activeTab === 'absent' && (
             <div className="flex flex-col h-full animate-fade-in">
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-red-500/5 text-xs uppercase text-red-400 font-semibold border-b border-red-500/10">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="text-[10px] font-bold uppercase text-red-400/70 tracking-widest bg-red-500/5 border-b border-red-500/10">
                     <tr>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Status</th>
+                      <th className="px-8 py-4">Date Missed</th>
+                      <th className="px-8 py-4">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {getPaginatedData(history.filter(r => r.status === 'absent')).map((record) => (
                       <tr key={record.id} className="hover:bg-red-500/5 transition-colors">
-                        <td className="px-6 py-4 font-mono text-zinc-300">
-                          {formatDisplayDate(record.date)}
-                        </td>
-                        <td className="px-6 py-4"><StatusBadge status="absent" /></td>
+                        <td className="px-8 py-4 text-sm font-medium text-zinc-300">{formatDisplayDate(record.date)}</td>
+                        <td className="px-8 py-4"><StatusBadge status="absent" /></td>
                       </tr>
                     ))}
                     {history.filter(r => r.status === 'absent').length === 0 && (
-                      <tr><td colSpan={2} className="px-6 py-12 text-center text-zinc-500">
-                        <div className="flex flex-col items-center gap-2">
-                          <CheckCircle className="w-8 h-8 text-emerald-500/50" />
-                          <span>Perfect Attendance! No absences.</span>
-                        </div>
-                      </td></tr>
+                      <tr><td colSpan={2} className="p-20 text-center text-zinc-500 flex flex-col items-center gap-3"><CheckCircle className="w-8 h-8 text-emerald-500/50" /><span>Perfect Attendance Record.</span></td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
-
         </div>
       </div>
+
+      <style jsx global>{`
+        .perspective-1000 { perspective: 1000px; }
+      `}</style>
     </div>
   );
 }
 
 /* =========================
-   SUB-COMPONENTS
+   PREMIUM SUB-COMPONENTS
 ========================= */
 
-function StatCard({ label, value, icon, color }: any) {
-  const colors: any = {
-    indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:shadow-indigo-500/10',
-    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:shadow-emerald-500/10',
-    red: 'bg-red-500/10 text-red-400 border-red-500/20 hover:shadow-red-500/10',
-    zinc: 'bg-zinc-800/50 text-zinc-400 border-zinc-700/50 hover:shadow-white/5',
-  };
+function TimeBox({ label, time, active }: any) {
   return (
-    <div className={`p-5 rounded-2xl border ${colors[color]} flex flex-col justify-between h-28 transition-all hover:scale-[1.02] hover:shadow-lg cursor-default`}>
-      <div className="flex justify-between items-start">
-        <p className="text-[11px] font-bold uppercase tracking-wider opacity-70">{label}</p>
-        <div className={`p-1.5 rounded-lg bg-white/5`}>{icon}</div>
-      </div>
-      <p className="text-3xl font-bold font-mono tracking-tight">{value}</p>
+    <div className={`px-6 py-4 rounded-xl text-center min-w-[120px] transition-colors ${active ? 'bg-zinc-900 border border-white/10' : 'opacity-50'}`}>
+      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">{label}</p>
+      <p className={`text-xl font-bold font-mono ${active ? 'text-white' : 'text-zinc-600'}`}>{time}</p>
     </div>
   );
 }
 
-function TabButton({ active, onClick, label, icon }: any) {
+function TabButton({ active, onClick, label }: any) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? 'bg-zinc-800 text-white shadow-lg border border-white/5' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}`}>
-      {icon} {label}
+    <button 
+      onClick={onClick} 
+      className={`
+        px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300
+        ${active 
+          ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]' 
+          : 'text-zinc-500 hover:text-white hover:bg-white/5'}
+      `}
+    >
+      {label}
     </button>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'present') {
-    return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><CheckCircle className="w-3 h-3" /> Present</span>;
+    return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>Present</span>;
   }
-  return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20"><XCircle className="w-3 h-3" /> Absent</span>;
+  return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-rose-500/10 text-rose-400 border border-rose-500/20"><div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>Absent</span>;
 }
 
-function PaginationFooter({ currentPage, totalPages, onPageChange, totalItems }: any) {
+function PaginationFooter({ currentPage, totalPages, onPageChange }: any) {
   return (
-    <div className="p-4 border-t border-white/5 bg-black/20 flex justify-between items-center">
-      <p className="text-xs text-zinc-500">Total Records: {totalItems}</p>
-      <div className="flex gap-2">
-        <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
-        <span className="text-xs text-zinc-400 px-2 py-1">Page {currentPage} of {totalPages || 1}</span>
-        <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0} className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>
-      </div>
+    <div className="p-4 border-t border-white/5 flex justify-end items-center gap-2">
+      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
+      <span className="text-xs font-mono text-zinc-500 px-2">{currentPage} / {totalPages || 1}</span>
+      <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>
     </div>
   );
 }
