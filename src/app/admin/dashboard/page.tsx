@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { 
   Users, UserCircle, Wallet, TrendingUp, Activity, 
   Plus, Calendar as CalendarIcon, CheckCircle2, 
-  UserPlus, Clock, Package, AlertTriangle, ChevronLeft, ChevronRight
+  UserPlus, Clock, Package, AlertTriangle, ChevronLeft, ChevronRight,
+  Shirt, Book
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -123,13 +124,13 @@ export default function AdminDashboard() {
     teacherCount: 0,
     presentToday: 0,
     totalRevenue: 0,
+    inventoryValue: 0,
     inventoryCount: 0,
     lowStock: 0
   });
   
   const [recentAdmissions, setRecentAdmissions] = useState<any[]>([]);
 
-  // IST Date Helper
   const getTodayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
   useEffect(() => {
@@ -144,16 +145,51 @@ export default function AdminDashboard() {
           supabase.from('view_teacher_attendance_ist').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'present')
         ]);
 
-        // 2. Fees & Inventory (Using 'maybeSingle' or handling errors gracefully if tables don't exist yet)
-        // Note: I'm assuming 'fee_payments' and 'inventory_items' exist. If not, these return null/0.
-        const { data: feeData } = await supabase.from('fee_payments').select('amount');
-        const totalFees = feeData?.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) || 0;
+        // 2. Fees Collected (Sum of paid_amount from fee_records)
+        const { data: feeData } = await supabase
+          .from('fee_records')
+          .select('paid_amount');
+        
+        const totalFees = feeData?.reduce((sum, record) => sum + (Number(record.paid_amount) || 0), 0) || 0;
 
-        const { data: invData } = await supabase.from('inventory_items').select('quantity, min_stock');
-        const totalItems = invData?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
-        const lowStockCount = invData?.filter(item => item.quantity <= item.min_stock).length || 0;
+        // 3. Inventory Calculation
+        // Fetch Stocks and Prices
+        const [nbStock, uniStock, nbItems, uniItems] = await Promise.all([
+          supabase.from('notebooks_stock').select('item_id, quantity, min_quantity'),
+          supabase.from('uniforms_stock').select('item_id, quantity, min_quantity'),
+          supabase.from('notebooks_items').select('id, price'),
+          supabase.from('uniforms_items').select('id, price')
+        ]);
 
-        // 3. Recent Activity
+        let totalValue = 0;
+        let totalItemsCount = 0;
+        let lowStockCount = 0;
+
+        // Process Notebooks
+        if (nbStock.data && nbItems.data) {
+          nbStock.data.forEach(stock => {
+            const item = nbItems.data.find((i: any) => i.id === stock.item_id);
+            if (item) {
+              totalValue += (stock.quantity || 0) * (item.price || 0);
+            }
+            totalItemsCount += stock.quantity || 0;
+            if ((stock.quantity || 0) <= (stock.min_quantity || 0)) lowStockCount++;
+          });
+        }
+
+        // Process Uniforms
+        if (uniStock.data && uniItems.data) {
+          uniStock.data.forEach(stock => {
+            const item = uniItems.data.find((i: any) => i.id === stock.item_id);
+            if (item) {
+              totalValue += (stock.quantity || 0) * (item.price || 0);
+            }
+            totalItemsCount += stock.quantity || 0;
+            if ((stock.quantity || 0) <= (stock.min_quantity || 0)) lowStockCount++;
+          });
+        }
+
+        // 4. Recent Activity
         const { data: latestStudents } = await supabase
           .from('students')
           .select('id, full_name, class, section, created_at')
@@ -165,7 +201,8 @@ export default function AdminDashboard() {
           teacherCount: teachersReq.count || 0,
           presentToday: attendanceReq.count || 0,
           totalRevenue: totalFees,
-          inventoryCount: totalItems,
+          inventoryValue: totalValue,
+          inventoryCount: totalItemsCount,
           lowStock: lowStockCount
         });
 
@@ -203,8 +240,8 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* --- 3D METRICS GRID (2 per row on mobile, 3/6 on desktop) --- */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
+      {/* --- 3D METRICS GRID (2 cols Mobile / 3 cols Desktop) --- */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         
         <TiltMetric 
           label="Total Students" 
@@ -232,24 +269,24 @@ export default function AdminDashboard() {
 
         <TiltMetric 
           label="Fees Collected" 
-          value={`₹${(stats.totalRevenue / 1000).toFixed(1)}k`} 
+          value={`₹${stats.totalRevenue.toLocaleString('en-IN')}`} 
           subLabel="Revenue"
           color="amber"
           icon={<Wallet className="w-5 h-5" />} 
         />
 
         <TiltMetric 
-          label="Inventory Items" 
-          value={stats.inventoryCount} 
-          subLabel="Stock"
+          label="Inventory Value" 
+          value={`₹${stats.inventoryValue.toLocaleString('en-IN')}`} 
+          subLabel={`${stats.inventoryCount} Items`}
           color="blue"
           icon={<Package className="w-5 h-5" />} 
         />
 
         <TiltMetric 
-          label="Low Stock" 
+          label="Low Stock Alerts" 
           value={stats.lowStock} 
-          subLabel="Alerts"
+          subLabel="Action Req"
           color="purple"
           icon={<AlertTriangle className="w-5 h-5" />} 
         />
@@ -301,6 +338,8 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 gap-3">
             <QuickAction href="/admin/students/add" title="New Admission" desc="Register student" icon={<UserPlus className="w-4 h-4" />} />
             <QuickAction href="/admin/fees" title="Collect Fees" desc="Record payment" icon={<Wallet className="w-4 h-4" />} />
+            <QuickAction href="/admin/inventory/notebooks/issue" title="Issue Notebooks" desc="Inventory" icon={<Book className="w-4 h-4" />} />
+            <QuickAction href="/admin/inventory/uniforms/issue" title="Issue Uniforms" desc="Inventory" icon={<Shirt className="w-4 h-4" />} />
           </div>
 
         </div>
