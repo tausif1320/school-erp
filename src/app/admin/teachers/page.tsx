@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { 
   Search, Download, FileText, Table as TableIcon, ChevronDown, 
   Loader2, Ban, Check, Trash2, User, BookOpen, Phone, Calendar,
-  MoreHorizontal, ChevronLeft, ChevronRight
+  MoreHorizontal, ChevronLeft, ChevronRight, Plus, Eye, Sparkles, GraduationCap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -26,7 +26,30 @@ type Teacher = {
 };
 
 /* =========================
-   COMPONENT
+   AVATAR GENERATOR
+========================= */
+function Avatar({ name }: { name: string }) {
+  const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  const gradients = [
+    'from-pink-500 to-rose-600',
+    'from-indigo-500 to-violet-600',
+    'from-emerald-500 to-teal-600',
+    'from-amber-500 to-orange-600',
+    'from-cyan-500 to-blue-600',
+  ];
+  const bg = gradients[name.length % gradients.length];
+
+  return (
+    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${bg} p-[2px] shadow-lg`}>
+      <div className="w-full h-full rounded-full bg-zinc-900/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
+        <span className="text-xs font-bold text-white tracking-wider">{initials}</span>
+      </div>
+    </div>
+  );
+}
+
+/* =========================
+   MAIN COMPONENT
 ========================= */
 export default function TeacherListPage() {
   /* --- STATE --- */
@@ -39,7 +62,7 @@ export default function TeacherListPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   
-  const exportRef = useRef<any>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   /* --- LOGIC: DATA LOADING --- */
   async function loadTeachers() {
@@ -91,8 +114,10 @@ export default function TeacherListPage() {
 
   // Close menus on outside click
   useEffect(() => {
-    function handleClickOutside(event: any) {
-      if (exportRef.current && !exportRef.current.contains(event.target)) setShowExportMenu(false);
+    function handleClickOutside(event: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -131,55 +156,69 @@ export default function TeacherListPage() {
      UI RENDER
   ========================= */
   return (
-    <div className="space-y-6 animate-fade-in-up pb-20 md:pb-10">
+    <div className="space-y-8 animate-fade-in-up pb-20 md:pb-10 perspective-1000">
       
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* --- HEADER --- */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Teachers Directory</h1>
-          <p className="text-zinc-500 text-sm mt-1">Manage faculty and staff records</p>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
+            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Faculty Database</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Teachers Directory</h1>
+          <p className="text-zinc-400 text-sm mt-1">Manage staff profiles and assignments.</p>
         </div>
 
-        {/* Action Group (Mobile Fixed) */}
-        <div className="flex gap-3 w-full md:w-auto">
-          <div className="relative w-full md:w-auto" ref={exportRef}>
+        {/* Action Group */}
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          
+          {/* Export Dropdown */}
+          <div className="relative flex-1 md:flex-none z-20" ref={exportRef}>
             <button 
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="w-full md:w-auto flex items-center justify-center gap-2 bg-zinc-900 border border-white/10 hover:bg-white/5 text-zinc-300 px-4 py-2.5 rounded-xl font-medium transition-all"
+              className="w-full md:w-auto flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-300 px-5 py-2.5 rounded-xl font-medium transition-all hover:border-white/20 active:scale-95"
             >
               <Download className="w-4 h-4" />
               <span>Export</span>
-              <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
+              <ChevronDown className={`w-3 h-3 ml-1 opacity-50 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
             </button>
             {showExportMenu && (
-              <div className="absolute top-full right-0 mt-2 w-full md:w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-scale-up">
-                <button onClick={exportToPDF} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/5 text-left transition-colors"><FileText className="w-4 h-4 text-red-400" /> PDF</button>
+              <div className="absolute top-full right-0 mt-2 w-full md:w-48 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-scale-up ring-1 ring-white/5">
+                <button onClick={exportToPDF} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/10 text-left transition-colors"><FileText className="w-4 h-4 text-rose-500" /> PDF Document</button>
                 <div className="h-px bg-white/5"></div>
-                <button onClick={exportToExcel} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/5 text-left transition-colors"><TableIcon className="w-4 h-4 text-green-400" /> Excel</button>
+                <button onClick={exportToExcel} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/10 text-left transition-colors"><TableIcon className="w-4 h-4 text-emerald-500" /> Excel Spreadsheet</button>
               </div>
             )}
           </div>
+
+          {/* Add Teacher Button */}
+          <Link href="/admin/teachers/add" className="flex-1 md:flex-none">
+            <button className="w-full group relative flex items-center justify-center gap-2 bg-white text-black px-6 py-2.5 rounded-xl font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] transition-all hover:scale-[1.02] active:scale-95">
+              <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+              <span>Add Faculty</span>
+            </button>
+          </Link>
         </div>
       </div>
 
-      {/* FILTER BAR */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-4 rounded-2xl relative z-10">
+      {/* --- FILTER BAR --- */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-2 rounded-2xl relative z-10 shadow-lg">
         {/* Search */}
-        <div className="relative group">
-          <Search className="absolute left-3 top-3.5 w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
+        <div className="col-span-1 md:col-span-8 relative group">
+          <Search className="absolute left-4 top-3.5 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
           <input 
-            placeholder="Search Name or Subject..." 
-            className="w-full bg-black/20 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-300 focus:bg-black/40 focus:border-indigo-500/50 outline-none transition-all placeholder:text-zinc-600"
+            placeholder="Search by Name or Subject..." 
+            className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:bg-black/60 focus:border-indigo-500/50 outline-none transition-all placeholder:text-zinc-600 font-medium"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         
         {/* Rows Per Page */}
-        <div className="relative group">
-           <div className="absolute left-3 top-3.5"><MoreHorizontal className="w-4 h-4 text-zinc-500" /></div>
+        <div className="col-span-1 md:col-span-4 relative group">
+           <div className="absolute left-4 top-3.5"><TableIcon className="w-4 h-4 text-zinc-500 group-focus-within:text-zinc-300 transition-colors" /></div>
            <select 
-             className="w-full bg-black/20 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-300 focus:bg-black/40 focus:border-indigo-500/50 outline-none transition-all appearance-none cursor-pointer"
+             className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-zinc-300 focus:bg-black/60 focus:border-white/20 outline-none transition-all appearance-none cursor-pointer font-medium"
              value={rowsPerPage}
              onChange={(e) => setRowsPerPage(Number(e.target.value))}
            >
@@ -191,109 +230,133 @@ export default function TeacherListPage() {
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-xl min-h-[400px] flex flex-col">
-        {loading ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-20 space-y-4 text-zinc-500">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-            <p className="text-sm font-medium">Loading records...</p>
-          </div>
-        ) : paginatedTeachers.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-20 text-center text-zinc-500">
-             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4"><User className="w-8 h-8 opacity-50" /></div>
-             <p className="text-lg font-medium text-white">No teachers found</p>
-             <p className="text-sm mt-1">Try adjusting your search.</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto custom-scrollbar flex-1">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs text-zinc-500 uppercase bg-black/20 border-b border-white/5">
-                  <tr>
-                    <th className="px-6 py-4 font-bold text-zinc-400">#</th>
-                    <th className="px-6 py-4 font-bold text-zinc-400">Teacher Name</th>
-                    <th className="px-6 py-4 font-bold text-zinc-400">Subject</th>
-                    <th className="px-6 py-4 font-bold text-zinc-400">Phone</th>
-                    <th className="px-6 py-4 font-bold text-zinc-400">Join Date</th>
-                    <th className="px-6 py-4 font-bold text-zinc-400">Status</th>
-                    <th className="px-6 py-4 font-bold text-zinc-400 text-right">Actions</th>
+      {/* --- THE TABLE --- */}
+      <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl flex flex-col relative">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse">
+            
+            {/* Header */}
+            <thead className="bg-black/40 border-b border-white/5 sticky top-0 z-10 backdrop-blur-md">
+              <tr>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest pl-8 w-[250px]">Teacher Profile</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Subject</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Contact</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Join Date</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Status</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest text-right pr-8">Actions</th>
+              </tr>
+            </thead>
+            
+            <tbody className="divide-y divide-white/5">
+              {loading ? (
+                // Skeleton Loader
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-8 py-4 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-white/5"></div>
+                      <div className="space-y-2"><div className="h-3 w-32 bg-white/5 rounded"></div><div className="h-2 w-20 bg-white/5 rounded"></div></div>
+                    </td>
+                    <td className="px-6 py-4"><div className="h-3 w-24 bg-white/5 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-3 w-20 bg-white/5 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-3 w-16 bg-white/5 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-6 w-16 bg-white/5 rounded-full"></div></td>
+                    <td className="px-6 py-4"></td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {paginatedTeachers.map((t, i) => (
-                    <tr key={t.id} className="group hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 text-zinc-500 font-mono text-xs">{startIndex + i + 1}</td>
-                      <td className="px-6 py-4">
-                        <Link href={`/admin/teachers/${t.id}`} className="font-semibold text-white hover:text-indigo-400 hover:underline transition-colors flex items-center gap-2">
-                           <User className="w-3.5 h-3.5 text-zinc-500" />
-                           {t.full_name}
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 text-zinc-300">
-                        <span className="flex items-center gap-2"><BookOpen className="w-3 h-3 text-zinc-500" /> {t.subject}</span>
-                      </td>
-                      <td className="px-6 py-4 text-zinc-400">
-                        <span className="flex items-center gap-2"><Phone className="w-3 h-3 text-zinc-500" /> {t.phone}</span>
-                      </td>
-                      <td className="px-6 py-4 text-zinc-400">
-                        <span className="flex items-center gap-2"><Calendar className="w-3 h-3 text-zinc-500" /> {t.join_date}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${t.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                          {t.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => toggleStatus(t.id, t.status)} 
-                            className={`p-2 rounded-lg transition-all ${t.status === 'active' ? 'text-amber-400 hover:bg-amber-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'}`} 
-                            title={t.status === 'active' ? 'Deactivate' : 'Activate'}
-                          >
-                            {t.status === 'active' ? <Ban className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                          </button>
-                          <button 
-                            onClick={() => deleteTeacher(t.id)} 
-                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all" 
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                ))
+              ) : paginatedTeachers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-24 text-center text-zinc-500">
+                     <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/5">
+                       <Search className="w-8 h-8 opacity-40" />
+                     </div>
+                     <p className="text-lg font-medium text-white">No teachers found</p>
+                     <p className="text-sm mt-1">Try adjusting your search query.</p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedTeachers.map((t) => (
+                  <tr 
+                    key={t.id} 
+                    className="group transition-all duration-300 hover:bg-white/[0.03] hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)] relative"
+                  >
+                    {/* Hover Indicator */}
+                    <td className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></td>
+
+                    <td className="px-6 py-4 pl-8">
+                      <div className="flex items-center gap-4">
+                        <Avatar name={t.full_name} />
+                        <div>
+                          <Link href={`/admin/teachers/${t.id}`} className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors">
+                            {t.full_name}
+                          </Link>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-zinc-500 group-hover:text-zinc-400">
+                             <User className="w-3 h-3" />
+                             <span>Faculty Member</span>
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded bg-indigo-500/10 text-indigo-400">
+                           <BookOpen className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-sm font-medium text-zinc-300">{t.subject || 'General'}</span>
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-zinc-400 font-mono text-xs">
+                            <Phone className="w-3 h-3" /> {t.phone || 'N/A'}
+                        </div>
+                    </td>
 
-            {/* Pagination Controls */}
-            <div className="p-4 border-t border-white/5 flex items-center justify-between bg-black/20">
-              <p className="text-xs text-zinc-500">
-                Showing <span className="text-white font-medium">{startIndex + 1}-{Math.min(startIndex + rowsPerPage, filteredTeachers.length)}</span> of <span className="text-white font-medium">{filteredTeachers.length}</span>
-              </p>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-xs text-zinc-400">Page {currentPage} of {totalPages || 1}</span>
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+                    <td className="px-6 py-4 text-sm text-zinc-500 font-mono">{t.join_date}</td>
+                    
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${t.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${t.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                        {t.status.toUpperCase()}
+                      </span>
+                    </td>
+                    
+                    <td className="px-6 py-4 pr-8 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <Link href={`/admin/teachers/${t.id}`}>
+                           <button className="p-2 rounded-lg text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-all" title="View Profile">
+                             <Eye className="w-4 h-4" />
+                           </button>
+                        </Link>
+                        <button onClick={() => toggleStatus(t.id, t.status)} className={`p-2 rounded-lg transition-all ${t.status === 'active' ? 'text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10' : 'text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10'}`} title={t.status === 'active' ? 'Deactivate' : 'Activate'}>
+                          {t.status === 'active' ? <Ban className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                        </button>
+                        <button onClick={() => deleteTeacher(t.id)} className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Delete Record">
+                           <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/5 flex items-center justify-between bg-black/40 backdrop-blur-md">
+          <p className="text-xs text-zinc-500 font-medium">
+            Showing <span className="text-white">{Math.min((currentPage - 1) * rowsPerPage + 1, filteredTeachers.length)} - {Math.min(currentPage * rowsPerPage, filteredTeachers.length)}</span> of <span className="text-white">{filteredTeachers.length}</span> teachers
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"><ChevronLeft className="w-4 h-4 text-zinc-300" /></button>
+            <span className="text-xs font-mono text-zinc-400 px-2">Page {currentPage} of {totalPages || 1}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"><ChevronRight className="w-4 h-4 text-zinc-300" /></button>
+          </div>
+        </div>
       </div>
-
+      
+      <style jsx global>{` .perspective-1000 { perspective: 1000px; } `}</style>
     </div>
   );
 }
