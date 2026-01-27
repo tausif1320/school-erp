@@ -6,16 +6,13 @@ import { useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Users, QrCode, UserCircle, 
   TrendingUp, Wallet, Package, Shirt, BookOpen, 
-  ChevronDown, ChevronRight, Search, LogOut, Menu, X, Bell,
-  GraduationCap
+  ChevronDown, ChevronRight, Search, LogOut, Menu, X, Bell
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 const NAV_ITEMS = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
-  
-  // --- TEACHERS SECTION ---
   {
     name: 'Teachers',
     icon: Users,
@@ -25,8 +22,6 @@ const NAV_ITEMS = [
       { name: 'Add Teacher', href: '/admin/teachers/add' },
     ]
   },
-
-  // --- STUDENTS SECTION (UPDATED) ---
   { 
     name: 'Students', 
     icon: UserCircle, 
@@ -36,11 +31,8 @@ const NAV_ITEMS = [
       { name: 'Add Student', href: '/admin/students/add' },
     ]
   },
-
   { name: 'Promote', icon: TrendingUp, href: '/admin/promote' },
   { name: 'QR Settings', icon: QrCode, href: '/admin/qr' },
-  
-  // --- FEES SECTION ---
   { 
     name: 'Fees', 
     icon: Wallet, 
@@ -50,8 +42,6 @@ const NAV_ITEMS = [
       { name: 'Fee Structure', href: '/admin/fees/classes' },
     ]
   },
-
-  // --- INVENTORY SECTION ---
   { 
     name: 'Inventory', 
     icon: Package, 
@@ -75,7 +65,6 @@ const NAV_ITEMS = [
       }
     ]
   },
-
   { name: 'Profile', icon: UserCircle, href: '/admin/profile' },
 ];
 
@@ -106,6 +95,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
     verifyAdmin();
   }, []);
+
+  // Helper to close menu on mobile click
+  const closeMobileMenu = () => setIsMobileOpen(false);
 
   if (checking) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -156,7 +148,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
              <SidebarItem 
                key={idx} 
                item={item} 
-               expanded={sidebarOpen || isMobileOpen} 
+               expanded={sidebarOpen || isMobileOpen}
+               onNavigate={closeMobileMenu} // Pass the close handler
              />
           ))}
         </div>
@@ -180,7 +173,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         
         {/* TOPBAR */}
         <header className="h-20 sticky top-0 z-30 bg-zinc-950/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4 lg:px-8">
-          
           <div className="flex items-center gap-4">
             <button onClick={() => setIsMobileOpen(true)} className="lg:hidden p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5">
               <Menu className="w-6 h-6" />
@@ -188,22 +180,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="hidden lg:block p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors">
               <Menu className="w-5 h-5" />
             </button>
-
-            {/* Global Search */}
             <div className="hidden md:flex items-center bg-zinc-900/50 border border-white/5 rounded-full px-4 py-2 w-72 focus-within:border-zinc-700 focus-within:bg-zinc-900 transition-all group">
                <Search className="w-4 h-4 text-zinc-500 group-focus-within:text-zinc-300 mr-3" />
-               <input 
-                 className="bg-transparent border-none outline-none text-sm text-zinc-200 w-full placeholder:text-zinc-600" 
-                 placeholder="Search students, fees..." 
-               />
+               <input className="bg-transparent border-none outline-none text-sm text-zinc-200 w-full placeholder:text-zinc-600" placeholder="Search..." />
             </div>
           </div>
-
           <div className="flex items-center gap-4">
-             <button className="relative p-2 text-zinc-400 hover:text-white transition-colors">
-               <Bell className="w-5 h-5" />
-               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-zinc-950"></span>
-             </button>
+             <button className="relative p-2 text-zinc-400 hover:text-white transition-colors"><Bell className="w-5 h-5" /></button>
              <div className="w-px h-6 bg-white/10 mx-1"></div>
              <LogoutButton />
           </div>
@@ -213,7 +196,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 lg:p-8 flex-1 overflow-x-hidden animate-fade-in-up">
           {children}
         </div>
-
       </main>
     </div>
   );
@@ -221,10 +203,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
 // --- SUB-COMPONENTS ---
 
-function SidebarItem({ item, expanded }: any) {
+function SidebarItem({ item, expanded, onNavigate }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-  // Check if current path starts with item.href (for active state on submenus)
   const isActive = pathname === item.href || (item.submenu && item.submenu.some((sub: any) => pathname.startsWith(sub.href)));
   const hasSub = !!item.submenu;
 
@@ -232,12 +213,17 @@ function SidebarItem({ item, expanded }: any) {
     <div>
       <Link 
         href={hasSub ? '#' : item.href} 
-        onClick={() => hasSub && setIsOpen(!isOpen)}
+        onClick={(e) => {
+          if (hasSub) {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          } else {
+            onNavigate(); // Close menu on click
+          }
+        }}
         className={`
           group flex items-center justify-between px-3.5 py-3 rounded-xl transition-all duration-200 cursor-pointer mb-1 mx-1
-          ${isActive 
-            ? 'bg-indigo-600/10 text-indigo-400 border border-indigo-500/20' 
-            : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200 border border-transparent'}
+          ${isActive ? 'bg-indigo-600/10 text-indigo-400 border border-indigo-500/20' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200 border border-transparent'}
         `}
       >
         <div className="flex items-center gap-3.5">
@@ -251,12 +237,16 @@ function SidebarItem({ item, expanded }: any) {
         )}
       </Link>
 
-      {/* SUBMENU ANIMATION */}
       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded && isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="ml-5 pl-4 border-l border-white/10 space-y-1 mt-1 mb-2">
           {item.submenu?.map((sub: any, idx: number) => (
-            sub.subItems ? <NestedItem key={idx} item={sub} /> :
-            <Link key={idx} href={sub.href} className={`block px-4 py-2 text-sm rounded-lg transition-colors duration-200 ${pathname === sub.href ? 'text-indigo-400 bg-white/5' : 'text-zinc-500 hover:text-indigo-400 hover:bg-white/5'}`}>
+            sub.subItems ? <NestedItem key={idx} item={sub} onNavigate={onNavigate} /> :
+            <Link 
+              key={idx} 
+              href={sub.href} 
+              onClick={onNavigate} // Close menu on submenu click
+              className={`block px-4 py-2 text-sm rounded-lg transition-colors duration-200 ${pathname === sub.href ? 'text-indigo-400 bg-white/5' : 'text-zinc-500 hover:text-indigo-400 hover:bg-white/5'}`}
+            >
               {sub.name}
             </Link>
           ))}
@@ -266,7 +256,7 @@ function SidebarItem({ item, expanded }: any) {
   );
 }
 
-function NestedItem({ item }: any) {
+function NestedItem({ item, onNavigate }: any) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   
@@ -279,7 +269,12 @@ function NestedItem({ item }: any) {
       {open && (
         <div className="ml-3 mt-1 border-l border-white/10 pl-2 space-y-0.5">
           {item.subItems.map((sub: any, i: number) => (
-             <Link key={i} href={sub.href} className={`block px-3 py-1.5 text-[13px] rounded-md transition-colors ${pathname === sub.href ? 'text-indigo-400 font-medium' : 'text-zinc-500 hover:text-indigo-400'}`}>
+             <Link 
+               key={i} 
+               href={sub.href} 
+               onClick={onNavigate} // Close menu on deep nested click
+               className={`block px-3 py-1.5 text-[13px] rounded-md transition-colors ${pathname === sub.href ? 'text-indigo-400 font-medium' : 'text-zinc-500 hover:text-indigo-400'}`}
+             >
                {sub.name}
              </Link>
           ))}
@@ -293,13 +288,11 @@ function LogoutButton() {
   const router = useRouter();
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    toast.success('Signed out securely');
-    router.push('/');
+    router.replace('/');
   };
   return (
-    <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-white/5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 border border-white/5 transition-all">
-      <LogOut className="w-3.5 h-3.5" />
-      <span className="hidden md:inline">Sign Out</span>
+    <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-white/5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400 border border-white/5 transition-all">
+      <LogOut className="w-3.5 h-3.5" /> <span className="hidden md:inline">Sign Out</span>
     </button>
   );
 }
