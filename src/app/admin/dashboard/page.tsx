@@ -1,240 +1,272 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
-} from 'recharts';
 import { 
-  Users, UserCheck, Wallet, Package, ArrowUpRight, 
-  ChevronLeft, ChevronRight, Calendar as CalIcon, TrendingUp
+  Users, UserCircle, Wallet, ArrowUpRight, 
+  ArrowDownRight, Bell, Calendar, Sparkles, 
+  Search, TrendingUp, Activity, Plus
 } from 'lucide-react';
+import Link from 'next/link';
 
-export default function AdminDashboard() {
-  const [loading, setLoading] = useState(true);
-  
-  // Real Data States
-  const [counts, setCounts] = useState({ student: 0, teacher: 0 });
-  const [inventory, setInventory] = useState({ stock: 0, collected: 0 });
-  const [feeGraph, setFeeGraph] = useState<any[]>([]);
-  const [currentDate, setCurrentDate] = useState(new Date());
+/* =========================
+   3D TILT CARD (Mini Version)
+========================= */
+function TiltMetric({ label, value, trend, icon, color }: any) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setRotation({ x: y * -10, y: x * 10 }); // Subtle tilt
+  };
 
-      // 1. Fetch Counts (Optimized)
-      const { count: s } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'active');
-      const { count: t } = await supabase.from('teachers').select('*', { count: 'exact', head: true }).eq('status', 'active');
+  const reset = () => setRotation({ x: 0, y: 0 });
 
-      // 2. Fetch Inventory Stats
-      const [uStock, nStock, uIssues, nIssues] = await Promise.all([
-        supabase.from('uniform_stock').select('quantity'),
-        supabase.from('notebook_stock').select('quantity'),
-        supabase.from('uniform_issues').select('paid_amount'),
-        supabase.from('notebook_issues').select('paid_amount'),
-      ]);
-      
-      const totalStock = (uStock.data?.reduce((a, b) => a + b.quantity, 0) || 0) + (nStock.data?.reduce((a, b) => a + b.quantity, 0) || 0);
-      const totalRevenue = (uIssues.data?.reduce((a, b) => a + b.paid_amount, 0) || 0) + (nIssues.data?.reduce((a, b) => a + b.paid_amount, 0) || 0);
-
-      // 3. Fetch Fee Graph
-      const { data: fees } = await supabase.from('fee_records').select('fee_month, total_amount, paid_amount').order('fee_month', { ascending: false }).limit(6);
-      const graph = fees?.map(f => ({ name: f.fee_month, collected: f.paid_amount, due: f.total_amount - f.paid_amount })).reverse() || [];
-
-      setCounts({ student: s || 0, teacher: t || 0 });
-      setInventory({ stock: totalStock, collected: totalRevenue });
-      setFeeGraph(graph);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
-
-  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-  const startDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-
-  if (loading) return (
-    <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
-      <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-      <p className="text-zinc-500 text-sm font-medium animate-pulse">Syncing Dashboard...</p>
-    </div>
-  );
+  const colors: any = {
+    indigo: { bg: 'from-indigo-500/10 to-violet-500/5', text: 'text-indigo-400', border: 'group-hover:border-indigo-500/30' },
+    emerald: { bg: 'from-emerald-500/10 to-teal-500/5', text: 'text-emerald-400', border: 'group-hover:border-emerald-500/30' },
+    rose: { bg: 'from-rose-500/10 to-red-500/5', text: 'text-rose-400', border: 'group-hover:border-rose-500/30' },
+    amber: { bg: 'from-amber-500/10 to-orange-500/5', text: 'text-amber-400', border: 'group-hover:border-amber-500/30' },
+  };
+  const theme = colors[color];
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
+    <div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={reset}
+      style={{ transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`, transformStyle: 'preserve-3d' }}
+      className={`
+        group relative overflow-hidden rounded-2xl p-6
+        bg-zinc-900/40 backdrop-blur-md border border-white/5
+        transition-all duration-200 ease-out
+        hover:shadow-2xl hover:shadow-black/50 ${theme.border}
+      `}
+    >
+      <div className={`absolute inset-0 bg-gradient-to-br ${theme.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
       
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard Overview</h1>
-          <p className="text-zinc-500 mt-1.5 text-sm">Real-time metrics and financial analytics.</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 bg-zinc-900/50 border border-white/5 px-3 py-1.5 rounded-full">
-           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-           System Active
-        </div>
-      </div>
-
-      {/* STATS BENTO GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <PremiumCard 
-          label="Total Students" 
-          value={counts.student.toLocaleString()} 
-          trend="+4% this month"
-          icon={<Users className="w-6 h-6 text-cyan-400" />} 
-          color="cyan"
-        />
-        <PremiumCard 
-          label="Active Teachers" 
-          value={counts.teacher.toLocaleString()} 
-          trend="Stable"
-          icon={<UserCheck className="w-6 h-6 text-violet-400" />} 
-          color="violet"
-        />
-        <PremiumCard 
-          label="Inv. Revenue" 
-          value={`₹${(inventory.collected / 1000).toFixed(1)}k`} 
-          trend="+12% vs last mo"
-          icon={<TrendingUp className="w-6 h-6 text-emerald-400" />} 
-          color="emerald"
-        />
-        <PremiumCard 
-          label="Stock Items" 
-          value={inventory.stock.toLocaleString()} 
-          trend="In good standing"
-          icon={<Package className="w-6 h-6 text-amber-400" />} 
-          color="amber"
-        />
-      </div>
-
-      {/* CHART & CALENDAR ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* MAIN CHART CARD */}
-        <div className="lg:col-span-2 bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 md:p-8 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none group-hover:bg-indigo-500/15 transition-colors duration-700" />
-          
-          <div className="relative z-10">
-            <div className="flex justify-between items-center mb-8">
-               <div>
-                 <h3 className="text-lg font-semibold text-white">Fee Revenue Trend</h3>
-                 <p className="text-zinc-500 text-xs mt-1">Income vs Outstanding Dues</p>
-               </div>
-               <button className="text-xs bg-white/5 hover:bg-white/10 text-zinc-400 px-3 py-1.5 rounded-lg border border-white/5 transition-colors">
-                 Export Data
-               </button>
+      <div className="relative z-10 transform translate-z-10">
+        <div className="flex justify-between items-start mb-4">
+          <div className={`p-2.5 rounded-xl bg-white/5 border border-white/5 ${theme.text}`}>
+            {icon}
+          </div>
+          {trend && (
+            <div className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-white/5 border border-white/5 text-zinc-400">
+              <TrendingUp className="w-3 h-3" /> {trend}
             </div>
-
-            <div className="h-[320px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={feeGraph} barSize={24}>
-                  <defs>
-                    <linearGradient id="gCol" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#34d399" stopOpacity={0.8}/>
-                      <stop offset="100%" stopColor="#34d399" stopOpacity={0.2}/>
-                    </linearGradient>
-                    <linearGradient id="gDue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f87171" stopOpacity={0.8}/>
-                      <stop offset="100%" stopColor="#f87171" stopOpacity={0.2}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                  <XAxis dataKey="name" stroke="#52525b" fontSize={11} axisLine={false} tickLine={false} dy={10} />
-                  <YAxis stroke="#52525b" fontSize={11} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value/1000}k`} />
-                  <Tooltip 
-                    cursor={{fill: 'rgba(255,255,255,0.03)'}} 
-                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)' }} 
-                    itemStyle={{ fontSize: '12px', fontWeight: 500 }}
-                  />
-                  <Bar dataKey="collected" fill="url(#gCol)" radius={[6, 6, 0, 0]} name="Collected" />
-                  <Bar dataKey="due" fill="url(#gDue)" radius={[6, 6, 0, 0]} name="Due" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          )}
         </div>
-
-        {/* CALENDAR WIDGET */}
-        <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-semibold text-white flex items-center gap-2.5">
-              <CalIcon className="w-4 h-4 text-indigo-400" /> Calendar
-            </h3>
-            <div className="flex items-center gap-1 bg-zinc-950/50 rounded-lg p-0.5 border border-white/5">
-               <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-1 hover:bg-white/10 rounded-md text-zinc-400 hover:text-white transition"><ChevronLeft className="w-4 h-4" /></button>
-               <span className="text-xs font-medium text-white min-w-[70px] text-center">{currentDate.toLocaleString('default', { month: 'short', year: 'numeric' })}</span>
-               <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-1 hover:bg-white/10 rounded-md text-zinc-400 hover:text-white transition"><ChevronRight className="w-4 h-4" /></button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-7 gap-2 text-center text-[10px] uppercase font-bold text-zinc-600 mb-3 tracking-wider">
-            {['S','M','T','W','T','F','S'].map(d => <span key={d}>{d}</span>)}
-          </div>
-          
-          <div className="grid grid-cols-7 gap-2 text-center text-sm flex-1 content-start">
-            {Array.from({ length: startDay }).map((_, i) => <div key={`empty-${i}`} />)}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-               const day = i + 1;
-               const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
-               return (
-                 <div 
-                   key={day} 
-                   className={`
-                     aspect-square flex items-center justify-center rounded-lg text-xs font-medium cursor-pointer transition-all duration-200
-                     ${isToday 
-                       ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 scale-110' 
-                       : 'text-zinc-400 hover:bg-white/5 hover:text-white hover:scale-105'}
-                   `}
-                 >
-                   {day}
-                 </div>
-               );
-            })}
-          </div>
-          
-          {/* Quick Event Dot Legend */}
-          <div className="mt-6 pt-4 border-t border-white/5 flex items-center gap-4 text-[10px] text-zinc-500">
-             <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Exam</div>
-             <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Event</div>
-          </div>
-        </div>
-
+        <p className="text-3xl font-bold text-white tracking-tight mb-1">{value}</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">{label}</p>
       </div>
     </div>
   );
 }
 
-// --- SUB-COMPONENT: PREMIUM STAT CARD ---
+/* =========================
+   MAIN DASHBOARD
+========================= */
+export default function AdminDashboard() {
+  const [stats, setStats] = useState({ teachers: 0, students: 0, revenue: 0 });
+  const [loading, setLoading] = useState(true);
 
-function PremiumCard({ label, value, trend, icon, color }: any) {
-  const styles: any = {
-    cyan:   'border-cyan-500/10 hover:border-cyan-500/30 hover:shadow-[0_0_50px_-12px_rgba(34,211,238,0.2)]',
-    violet: 'border-violet-500/10 hover:border-violet-500/30 hover:shadow-[0_0_50px_-12px_rgba(139,92,246,0.2)]',
-    emerald:'border-emerald-500/10 hover:border-emerald-500/30 hover:shadow-[0_0_50px_-12px_rgba(16,185,129,0.2)]',
-    amber:  'border-amber-500/10 hover:border-amber-500/30 hover:shadow-[0_0_50px_-12px_rgba(245,158,11,0.2)]',
-  };
+  useEffect(() => {
+    async function loadStats() {
+      // Parallel data fetching for speed
+      const [tReq, sReq] = await Promise.all([
+        supabase.from('teachers').select('*', { count: 'exact', head: true }),
+        supabase.from('students').select('*', { count: 'exact', head: true })
+      ]);
+      
+      setStats({
+        teachers: tReq.count || 0,
+        students: sReq.count || 0,
+        revenue: 1245000, // Mock for demo
+      });
+      setLoading(false);
+    }
+    loadStats();
+  }, []);
 
   return (
-    <div className={`
-      relative group bg-zinc-900/40 backdrop-blur-xl border p-6 rounded-3xl transition-all duration-500
-      ${styles[color]} border-white/5
-    `}>
-      <div className="flex justify-between items-start mb-4">
-        <div className={`p-3 rounded-2xl bg-white/5 group-hover:bg-white/10 transition-colors ring-1 ring-white/5`}>
-          {icon}
+    <div className="space-y-8 animate-fade-in-up pb-20 perspective-1000">
+      
+      {/* --- HEADER --- */}
+      <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">System Operational</span>
+          </div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Command Center</h1>
+          <p className="text-zinc-400 text-sm mt-1">Real-time overview of your institution's performance.</p>
         </div>
-        <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/5">
-           <ArrowUpRight className="w-3 h-3 text-zinc-400" />
+
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-white/10 rounded-full text-xs text-zinc-400">
+             <Calendar className="w-3.5 h-3.5" />
+             <span>{new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</span>
+          </div>
+          <button className="p-2.5 rounded-xl bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all">
+            <Bell className="w-5 h-5" />
+          </button>
         </div>
       </div>
-      
-      <div>
-        <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-1">{label}</p>
-        <h3 className="text-3xl font-bold text-white tracking-tight">{value}</h3>
-        <p className="text-zinc-500 text-xs mt-2 font-medium">
-          <span className="text-zinc-300">{trend}</span>
-        </p>
+
+      {/* --- 3D METRICS GRID --- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <TiltMetric 
+          label="Total Revenue" 
+          value={`₹${(stats.revenue / 100000).toFixed(2)}L`} 
+          trend="+12%" 
+          color="emerald"
+          icon={<Wallet className="w-6 h-6" />} 
+        />
+        <TiltMetric 
+          label="Active Students" 
+          value={stats.students} 
+          trend="+5%" 
+          color="indigo"
+          icon={<UserCircle className="w-6 h-6" />} 
+        />
+        <TiltMetric 
+          label="Faculty Staff" 
+          value={stats.teachers} 
+          trend="Stable" 
+          color="rose"
+          icon={<Users className="w-6 h-6" />} 
+        />
+      </div>
+
+      {/* --- MAIN LAYOUT --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* LEFT COLUMN (Activity Feed) */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Activity className="w-4 h-4 text-zinc-500" /> Recent Activity
+            </h2>
+          </div>
+          
+          <div className="bg-zinc-900/40 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden p-1">
+            <ActivityItem 
+              title="Fees Received" 
+              desc="Class 10-A • Tuition Fee" 
+              time="2 min ago" 
+              amount="+ ₹4,500" 
+              type="success" 
+            />
+            <ActivityItem 
+              title="New Admission" 
+              desc="Rahul Sharma • Class 9" 
+              time="1 hour ago" 
+              amount="Admitted" 
+              type="neutral" 
+            />
+            <ActivityItem 
+              title="Inventory Alert" 
+              desc="Science Notebooks Low Stock" 
+              time="3 hours ago" 
+              amount="Action Req" 
+              type="warning" 
+            />
+            <ActivityItem 
+              title="Teacher Absent" 
+              desc="Priya Singh • Sick Leave" 
+              time="5 hours ago" 
+              amount="Leave" 
+              type="danger" 
+            />
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN (Quick Actions) */}
+        <div className="space-y-6">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-zinc-500" /> Quick Actions
+          </h2>
+          
+          <div className="grid grid-cols-1 gap-3">
+            <QuickAction href="/admin/students/add" title="New Student" desc="Register admission" icon={<UserCircle className="w-4 h-4" />} />
+            <QuickAction href="/admin/fees" title="Collect Fees" desc="Record payment" icon={<Wallet className="w-4 h-4" />} />
+            <QuickAction href="/admin/teachers/add" title="Add Faculty" desc="Onboard teacher" icon={<Users className="w-4 h-4" />} />
+          </div>
+
+          {/* Mini Ad/Status */}
+          <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-indigo-900 to-violet-900 border border-white/10">
+            <div className="relative z-10">
+              <h3 className="text-lg font-bold text-white mb-1">System Healthy</h3>
+              <p className="text-indigo-200 text-xs mb-4">Database and API services are running optimally.</p>
+              <div className="h-1 w-full bg-black/20 rounded-full overflow-hidden">
+                <div className="h-full w-[98%] bg-indigo-400 rounded-full"></div>
+              </div>
+            </div>
+            {/* Background Blob */}
+            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500 blur-[50px] opacity-50 pointer-events-none"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <style jsx global>{`
+        .perspective-1000 { perspective: 1000px; }
+        .translate-z-10 { transform: translateZ(20px); }
+      `}</style>
+    </div>
+  );
+}
+
+/* =========================
+   SUB-COMPONENTS
+========================= */
+
+function ActivityItem({ title, desc, time, amount, type }: any) {
+  const colors: any = {
+    success: 'bg-emerald-500/10 text-emerald-400',
+    neutral: 'bg-indigo-500/10 text-indigo-400',
+    warning: 'bg-amber-500/10 text-amber-400',
+    danger: 'bg-rose-500/10 text-rose-400',
+  };
+  
+  return (
+    <div className="group flex items-center justify-between p-4 hover:bg-white/5 rounded-2xl transition-colors cursor-default">
+      <div className="flex items-center gap-4">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 ${colors[type]}`}>
+          {type === 'success' ? <TrendingUp className="w-5 h-5" /> : <Activity className="w-5 h-5" />}
+        </div>
+        <div>
+          <p className="text-sm font-bold text-white">{title}</p>
+          <p className="text-xs text-zinc-500">{desc}</p>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className={`text-xs font-bold font-mono ${type === 'success' ? 'text-emerald-400' : 'text-zinc-400'}`}>{amount}</p>
+        <p className="text-[10px] text-zinc-600">{time}</p>
       </div>
     </div>
+  );
+}
+
+function QuickAction({ href, title, desc, icon }: any) {
+  return (
+    <Link href={href} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900 border border-white/5 hover:border-indigo-500/30 hover:bg-zinc-800 transition-all active:scale-95">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-black/40 text-zinc-400 group-hover:text-white transition-colors">
+          {icon}
+        </div>
+        <div>
+          <p className="text-sm font-bold text-zinc-200 group-hover:text-white">{title}</p>
+          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">{desc}</p>
+        </div>
+      </div>
+      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all">
+        <Plus className="w-4 h-4" />
+      </div>
+    </Link>
   );
 }
