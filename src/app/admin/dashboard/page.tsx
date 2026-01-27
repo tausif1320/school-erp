@@ -6,7 +6,7 @@ import {
   Users, UserCircle, Wallet, TrendingUp, Activity, 
   Plus, Calendar as CalendarIcon, CheckCircle2, 
   UserPlus, Clock, Package, AlertTriangle, ChevronLeft, ChevronRight,
-  Shirt, Book
+  Shirt, Book, CreditCard, Banknote
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -34,8 +34,9 @@ function TiltMetric({ label, value, subLabel, icon, color }: any) {
     amber: { bg: 'from-amber-500/10 to-orange-500/5', text: 'text-amber-400', border: 'group-hover:border-amber-500/30' },
     blue: { bg: 'from-blue-500/10 to-cyan-500/5', text: 'text-blue-400', border: 'group-hover:border-blue-500/30' },
     purple: { bg: 'from-purple-500/10 to-fuchsia-500/5', text: 'text-purple-400', border: 'group-hover:border-purple-500/30' },
+    cyan: { bg: 'from-cyan-500/10 to-sky-500/5', text: 'text-cyan-400', border: 'group-hover:border-cyan-500/30' },
   };
-  const theme = colors[color];
+  const theme = colors[color] || colors.indigo;
 
   return (
     <div
@@ -71,7 +72,7 @@ function TiltMetric({ label, value, subLabel, icon, color }: any) {
 }
 
 /* =========================
-   SIMPLE CALENDAR WIDGET
+   CALENDAR WIDGET
 ========================= */
 function CalendarWidget() {
   const [date, setDate] = useState(new Date());
@@ -86,24 +87,24 @@ function CalendarWidget() {
   };
 
   return (
-    <div className="bg-zinc-900/40 backdrop-blur-md border border-white/5 rounded-3xl p-6">
+    <div className="bg-zinc-900/40 backdrop-blur-md border border-white/5 rounded-3xl p-6 h-fit">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-white">{date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+        <h3 className="font-bold text-white text-sm">{date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
         <div className="flex gap-1">
           <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white/10 rounded"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
           <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white/10 rounded"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-2 text-center text-xs font-medium text-zinc-500 mb-2">
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-zinc-600 uppercase mb-2">
         {['S','M','T','W','T','F','S'].map(d => <span key={d}>{d}</span>)}
       </div>
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1.5">
         {Array.from({ length: startDay }).map((_, i) => <div key={`e-${i}`} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const d = i + 1;
           const isToday = isCurrentMonth && d === today;
           return (
-            <div key={d} className={`h-8 w-8 flex items-center justify-center rounded-lg text-xs font-bold ${isToday ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/50' : 'text-zinc-300 hover:bg-white/5'}`}>
+            <div key={d} className={`h-7 w-7 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${isToday ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/50' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
               {d}
             </div>
           );
@@ -118,17 +119,7 @@ function CalendarWidget() {
 ========================= */
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
-  
-  const [stats, setStats] = useState({
-    studentCount: 0,
-    teacherCount: 0,
-    presentToday: 0,
-    totalRevenue: 0,
-    inventoryValue: 0,
-    inventoryCount: 0,
-    lowStock: 0
-  });
-  
+  const [cards, setCards] = useState<any[]>([]); // We will store the final filtered cards here
   const [recentAdmissions, setRecentAdmissions] = useState<any[]>([]);
 
   const getTodayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -138,78 +129,133 @@ export default function AdminDashboard() {
       try {
         const today = getTodayIST();
 
-        // 1. Basic Counts
-        const [studentsReq, teachersReq, attendanceReq] = await Promise.all([
+        // --- 1. PARALLEL DATA FETCHING ---
+        const [
+          studentsReq, 
+          teachersReq, 
+          attendanceReq,
+          feeRecords,
+          nbStock, uniStock, nbItems, uniItems
+        ] = await Promise.all([
           supabase.from('students').select('*', { count: 'exact', head: true }),
           supabase.from('teachers').select('*', { count: 'exact', head: true }),
-          supabase.from('view_teacher_attendance_ist').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'present')
-        ]);
-
-        // 2. Fees Collected (Sum of paid_amount from fee_records)
-        const { data: feeData } = await supabase
-          .from('fee_records')
-          .select('paid_amount');
-        
-        const totalFees = feeData?.reduce((sum, record) => sum + (Number(record.paid_amount) || 0), 0) || 0;
-
-        // 3. Inventory Calculation
-        // Fetch Stocks and Prices
-        const [nbStock, uniStock, nbItems, uniItems] = await Promise.all([
+          supabase.from('view_teacher_attendance_ist').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'present'),
+          supabase.from('fee_records').select('paid_amount, status'),
           supabase.from('notebooks_stock').select('item_id, quantity, min_quantity'),
           supabase.from('uniforms_stock').select('item_id, quantity, min_quantity'),
           supabase.from('notebooks_items').select('id, price'),
           supabase.from('uniforms_items').select('id, price')
         ]);
 
-        let totalValue = 0;
-        let totalItemsCount = 0;
-        let lowStockCount = 0;
+        // --- 2. CALCULATIONS ---
 
-        // Process Notebooks
-        if (nbStock.data && nbItems.data) {
-          nbStock.data.forEach(stock => {
-            const item = nbItems.data.find((i: any) => i.id === stock.item_id);
-            if (item) {
-              totalValue += (stock.quantity || 0) * (item.price || 0);
-            }
-            totalItemsCount += stock.quantity || 0;
-            if ((stock.quantity || 0) <= (stock.min_quantity || 0)) lowStockCount++;
+        // A. Basic Counts
+        const studentCount = studentsReq.count || 0;
+        const teacherCount = teachersReq.count || 0;
+        const presentToday = attendanceReq.count || 0;
+
+        // B. Fees Analysis
+        let feesCollected = 0;
+        let pendingCount = 0;
+        let totalTransactions = 0;
+
+        if (feeRecords.data) {
+          totalTransactions = feeRecords.data.length;
+          feeRecords.data.forEach((r: any) => {
+            feesCollected += Number(r.paid_amount) || 0;
+            if (r.status === 'unpaid') pendingCount++;
           });
         }
 
-        // Process Uniforms
-        if (uniStock.data && uniItems.data) {
-          uniStock.data.forEach(stock => {
-            const item = uniItems.data.find((i: any) => i.id === stock.item_id);
-            if (item) {
-              totalValue += (stock.quantity || 0) * (item.price || 0);
-            }
-            totalItemsCount += stock.quantity || 0;
-            if ((stock.quantity || 0) <= (stock.min_quantity || 0)) lowStockCount++;
-          });
-        }
+        // C. Inventory Valuation
+        let inventoryVal = 0;
+        let lowStock = 0;
+        let totalItems = 0;
 
-        // 4. Recent Activity
+        // Helper to process stock
+        const processStock = (stockData: any[], itemData: any[]) => {
+          if (!stockData || !itemData) return;
+          stockData.forEach(stock => {
+            const item = itemData.find((i: any) => i.id === stock.item_id);
+            if (item) {
+              inventoryVal += (stock.quantity || 0) * (item.price || 0);
+            }
+            totalItems += stock.quantity || 0;
+            if ((stock.quantity || 0) <= (stock.min_quantity || 0)) lowStock++;
+          });
+        };
+
+        processStock(nbStock.data || [], nbItems.data || []);
+        processStock(uniStock.data || [], uniItems.data || []);
+
+        // --- 3. BUILD ALL POTENTIAL CARDS ---
+        const allPotentialCards = [
+          {
+            id: 'students', label: 'Total Students', value: studentCount, subLabel: 'Enrolled',
+            icon: <UserCircle className="w-5 h-5" />, color: 'indigo'
+          },
+          {
+            id: 'teachers', label: 'Total Faculty', value: teacherCount, subLabel: 'Staff',
+            icon: <Users className="w-5 h-5" />, color: 'rose'
+          },
+          {
+            id: 'attendance', label: 'Present Today', value: presentToday, subLabel: 'Teachers',
+            icon: <CheckCircle2 className="w-5 h-5" />, color: 'emerald'
+          },
+          {
+            id: 'fees', label: 'Fees Collected', value: `₹${feesCollected.toLocaleString('en-IN')}`, rawValue: feesCollected, subLabel: 'Revenue',
+            icon: <Wallet className="w-5 h-5" />, color: 'amber'
+          },
+          {
+            id: 'pending', label: 'Pending Fees', value: pendingCount, subLabel: 'Unpaid',
+            icon: <Clock className="w-5 h-5" />, color: 'rose'
+          },
+          {
+            id: 'inventory', label: 'Inventory Value', value: `₹${inventoryVal.toLocaleString('en-IN')}`, rawValue: inventoryVal, subLabel: 'Assets',
+            icon: <Package className="w-5 h-5" />, color: 'blue'
+          },
+          {
+            id: 'transactions', label: 'Transactions', value: totalTransactions, subLabel: 'Records',
+            icon: <CreditCard className="w-5 h-5" />, color: 'cyan'
+          },
+          {
+            id: 'lowstock', label: 'Low Stock Alerts', value: lowStock, subLabel: 'Action Req',
+            icon: <AlertTriangle className="w-5 h-5" />, color: 'purple'
+          },
+          {
+            id: 'items', label: 'Total Items', value: totalItems, subLabel: 'In Stock',
+            icon: <Book className="w-5 h-5" />, color: 'indigo'
+          }
+        ];
+
+        // --- 4. SMART FILTERING ---
+        // Filter out cards where value is 0 (except students/teachers which are critical even if 0)
+        // We want exactly 6 cards for the grid
+        const criticalIds = ['students', 'teachers', 'attendance'];
+        
+        const filteredCards = allPotentialCards.filter(card => {
+          if (criticalIds.includes(card.id)) return true; // Always show critical
+          if (typeof card.value === 'string') {
+             // For currency strings, check rawValue
+             return (card.rawValue !== undefined && card.rawValue > 0); 
+          }
+          return card.value > 0;
+        });
+
+        // Take top 6
+        setCards(filteredCards.slice(0, 6));
+
+
+        // --- 5. RECENT ACTIVITY ---
         const { data: latestStudents } = await supabase
           .from('students')
           .select('id, full_name, class, section, created_at')
           .order('created_at', { ascending: false })
           .limit(5);
-
-        setStats({
-          studentCount: studentsReq.count || 0,
-          teacherCount: teachersReq.count || 0,
-          presentToday: attendanceReq.count || 0,
-          totalRevenue: totalFees,
-          inventoryValue: totalValue,
-          inventoryCount: totalItemsCount,
-          lowStock: lowStockCount
-        });
-
         setRecentAdmissions(latestStudents || []);
 
       } catch (err) {
-        console.error('Data fetch warning:', err);
+        console.error('Data fetch error:', err);
       } finally {
         setLoading(false);
       }
@@ -240,62 +286,28 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* --- 3D METRICS GRID (2 cols Mobile / 3 cols Desktop) --- */}
+      {/* --- 3D METRICS GRID --- */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        
-        <TiltMetric 
-          label="Total Students" 
-          value={stats.studentCount} 
-          subLabel="Enrolled"
-          color="indigo"
-          icon={<UserCircle className="w-5 h-5" />} 
-        />
-        
-        <TiltMetric 
-          label="Total Faculty" 
-          value={stats.teacherCount} 
-          subLabel="Staff"
-          color="rose"
-          icon={<Users className="w-5 h-5" />} 
-        />
-
-        <TiltMetric 
-          label="Present Today" 
-          value={stats.presentToday} 
-          subLabel="Teachers"
-          color="emerald"
-          icon={<CheckCircle2 className="w-5 h-5" />} 
-        />
-
-        <TiltMetric 
-          label="Fees Collected" 
-          value={`₹${stats.totalRevenue.toLocaleString('en-IN')}`} 
-          subLabel="Revenue"
-          color="amber"
-          icon={<Wallet className="w-5 h-5" />} 
-        />
-
-        <TiltMetric 
-          label="Inventory Value" 
-          value={`₹${stats.inventoryValue.toLocaleString('en-IN')}`} 
-          subLabel={`${stats.inventoryCount} Items`}
-          color="blue"
-          icon={<Package className="w-5 h-5" />} 
-        />
-
-        <TiltMetric 
-          label="Low Stock Alerts" 
-          value={stats.lowStock} 
-          subLabel="Action Req"
-          color="purple"
-          icon={<AlertTriangle className="w-5 h-5" />} 
-        />
+        {cards.map((card) => (
+          <TiltMetric 
+            key={card.id}
+            label={card.label} 
+            value={card.value} 
+            subLabel={card.subLabel}
+            color={card.color}
+            icon={card.icon} 
+          />
+        ))}
+        {/* Fallback if somehow everything is 0 (Unlikely) */}
+        {cards.length < 3 && (
+           <TiltMetric label="System Ready" value="Active" subLabel="Online" color="emerald" icon={<Activity className="w-5 h-5"/>} />
+        )}
       </div>
 
       {/* --- MAIN LAYOUT --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* LEFT COLUMN: ACTIVITY + CHARTS */}
+        {/* LEFT COLUMN: ACTIVITY FEED */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -311,35 +323,46 @@ export default function AdminDashboard() {
                </div>
             ) : (
               recentAdmissions.map((student) => (
-                <ActivityItem 
-                  key={student.id}
-                  title={student.full_name}
-                  desc={`Admitted to Class ${student.class} - ${student.section}`}
-                  time={new Date(student.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  amount="New Student"
-                  type="neutral"
-                />
+                <div key={student.id} className="group flex items-center justify-between p-4 hover:bg-white/5 rounded-2xl transition-colors cursor-default">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-indigo-500/10 text-indigo-400`}>
+                      <UserPlus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{student.full_name}</p>
+                      <p className="text-xs text-zinc-500">Admitted to Class {student.class} - {student.section}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold font-mono text-emerald-400">New Student</p>
+                    <p className="text-[10px] text-zinc-600">
+                      {new Date(student.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                </div>
               ))
             )}
           </div>
         </div>
 
         {/* RIGHT COLUMN: CALENDAR & ACTIONS */}
-        <div className="space-y-6">
+        <div className="space-y-6 flex flex-col">
           
           {/* Calendar Widget */}
           <CalendarWidget />
 
-          {/* Quick Actions */}
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Clock className="w-4 h-4 text-zinc-500" /> Quick Actions
-          </h2>
-          
-          <div className="grid grid-cols-1 gap-3">
-            <QuickAction href="/admin/students/add" title="New Admission" desc="Register student" icon={<UserPlus className="w-4 h-4" />} />
-            <QuickAction href="/admin/fees" title="Collect Fees" desc="Record payment" icon={<Wallet className="w-4 h-4" />} />
-            <QuickAction href="/admin/inventory/notebooks/issue" title="Issue Notebooks" desc="Inventory" icon={<Book className="w-4 h-4" />} />
-            <QuickAction href="/admin/inventory/uniforms/issue" title="Issue Uniforms" desc="Inventory" icon={<Shirt className="w-4 h-4" />} />
+          {/* Quick Actions (Redesigned Grid) */}
+          <div className="flex-1 flex flex-col">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+              <Clock className="w-4 h-4 text-zinc-500" /> Quick Actions
+            </h2>
+            
+            <div className="grid grid-cols-2 gap-3 h-full">
+              <QuickActionBtn href="/admin/students/add" title="Add Student" icon={<UserPlus className="w-5 h-5" />} color="indigo" />
+              <QuickActionBtn href="/admin/fees" title="Collect Fees" icon={<Wallet className="w-5 h-5" />} color="emerald" />
+              <QuickActionBtn href="/admin/inventory/notebooks/issue" title="Notebooks" icon={<Book className="w-5 h-5" />} color="amber" />
+              <QuickActionBtn href="/admin/inventory/uniforms/issue" title="Uniforms" icon={<Shirt className="w-5 h-5" />} color="rose" />
+            </div>
           </div>
 
         </div>
@@ -355,44 +378,28 @@ export default function AdminDashboard() {
 }
 
 /* =========================
-   SUB-COMPONENTS
+   NEW QUICK ACTION BUTTON (Grid Style)
 ========================= */
+function QuickActionBtn({ href, title, icon, color }: any) {
+  const colors: any = {
+    indigo: 'bg-indigo-500/10 text-indigo-400 hover:border-indigo-500/50',
+    emerald: 'bg-emerald-500/10 text-emerald-400 hover:border-emerald-500/50',
+    amber: 'bg-amber-500/10 text-amber-400 hover:border-amber-500/50',
+    rose: 'bg-rose-500/10 text-rose-400 hover:border-rose-500/50',
+  };
 
-function ActivityItem({ title, desc, time, amount, type }: any) {
   return (
-    <div className="group flex items-center justify-between p-4 hover:bg-white/5 rounded-2xl transition-colors cursor-default">
-      <div className="flex items-center gap-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-indigo-500/10 text-indigo-400`}>
-          <UserPlus className="w-5 h-5" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-white">{title}</p>
-          <p className="text-xs text-zinc-500">{desc}</p>
-        </div>
-      </div>
-      <div className="text-right">
-        <p className="text-xs font-bold font-mono text-emerald-400">{amount}</p>
-        <p className="text-[10px] text-zinc-600">{time}</p>
-      </div>
-    </div>
-  );
-}
-
-function QuickAction({ href, title, desc, icon }: any) {
-  return (
-    <Link href={href} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900 border border-white/5 hover:border-indigo-500/30 hover:bg-zinc-800 transition-all active:scale-95">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-black/40 text-zinc-400 group-hover:text-white transition-colors">
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm font-bold text-zinc-200 group-hover:text-white">{title}</p>
-          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">{desc}</p>
-        </div>
-      </div>
-      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all">
-        <Plus className="w-4 h-4" />
-      </div>
+    <Link 
+      href={href} 
+      className={`
+        flex flex-col items-center justify-center gap-3 p-4 rounded-2xl 
+        bg-zinc-900 border border-white/5 
+        transition-all duration-200 active:scale-95 hover:bg-zinc-800
+        ${colors[color]}
+      `}
+    >
+      <div className="p-3 rounded-xl bg-black/20">{icon}</div>
+      <span className="text-xs font-bold text-center text-zinc-300">{title}</span>
     </Link>
   );
 }
