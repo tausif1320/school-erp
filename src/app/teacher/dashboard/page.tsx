@@ -7,7 +7,7 @@ import {
   CheckCircle, XCircle, Clock, Calendar, 
   LogOut, Briefcase, ChevronDown, Loader2, 
   BarChart3, AlertCircle, ChevronLeft, ChevronRight,
-  CalendarDays
+  CalendarDays, ArrowRight
 } from 'lucide-react';
 
 /* =========================
@@ -17,13 +17,47 @@ type AttendanceRecord = {
   id: string;
   date: string;
   status: 'present' | 'absent';
-  check_in_ist: string | null;
+  check_in_ist: string | null; // ISO string or Formatted String from DB
   check_out_ist: string | null;
 };
 
-// Get today's date in YYYY-MM-DD (IST)
+// Get today's date for logic comparison (YYYY-MM-DD)
 function getISTDateString() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+// Display Date: "27 Jan 2026"
+function formatDisplayDate(dateStr: string) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('en-IN', { 
+    day: '2-digit', month: 'short', year: 'numeric' 
+  });
+}
+
+// Display Time Only: "06:30:46 PM"
+function formatTimeOnly(timeStr: string | null) {
+  if (!timeStr) return '--:--';
+  // Attempt to parse as Date object
+  const date = new Date(timeStr);
+  
+  // Check if valid date object
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true 
+    });
+  }
+  
+  // If DB returns a pre-formatted string like "27-Jan-2026 06:30:46 PM", split it
+  if (timeStr.includes(' ')) {
+    const parts = timeStr.split(' ');
+    // Assuming format "Date Time AM/PM" or "Date Time"
+    if (parts.length >= 2) {
+      // Return everything after the date part
+      return parts.slice(1).join(' ');
+    }
+  }
+  
+  return timeStr;
 }
 
 /* =========================
@@ -38,7 +72,7 @@ export default function TeacherDashboard() {
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
   const [stats, setStats] = useState({ present: 0, absent: 0, workingDays: 0, attendanceRate: 0 });
   
-  // Filter State (Default to current month YYYY-MM)
+  // Filter State
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
 
   // Pagination State
@@ -68,13 +102,12 @@ export default function TeacherDashboard() {
 
     setTodayRecord(todayData);
 
-    // 2. Fetch History for Selected Month
+    // 2. Fetch History
     await fetchHistory(teacher.id, selectedMonth);
     setLoading(false);
   }
 
   async function fetchHistory(tid: string, monthStr: string) {
-    // Calculate start and end of the selected month
     const startObj = new Date(monthStr + "-01");
     const endObj = new Date(startObj.getFullYear(), startObj.getMonth() + 1, 0);
 
@@ -88,9 +121,8 @@ export default function TeacherDashboard() {
 
     const records = data || [];
     setHistory(records);
-    setCurrentPage(1); // Reset to page 1 on new data
+    setCurrentPage(1); 
 
-    // Calculate Stats
     const present = records.filter(r => r.status === 'present').length;
     const absent = records.filter(r => r.status === 'absent').length;
     const total = present + absent;
@@ -106,7 +138,7 @@ export default function TeacherDashboard() {
     if (!todayRecord) return;
     const { error } = await supabase
       .from('teacher_attendance')
-      .update({ check_out: new Date().toISOString() }) // View handles timezone conv
+      .update({ check_out: new Date().toISOString() })
       .eq('id', todayRecord.id);
 
     if (error) toast.error('Error checking out');
@@ -116,12 +148,11 @@ export default function TeacherDashboard() {
     }
   }
 
-  // --- PAGINATION HELPERS ---
+  // --- PAGINATION ---
   const getPaginatedData = (data: AttendanceRecord[]) => {
     const start = (currentPage - 1) * rowsPerPage;
     return data.slice(start, start + rowsPerPage);
   };
-
   const totalPages = (totalItems: number) => Math.ceil(totalItems / rowsPerPage);
 
   if (loading) return (
@@ -134,7 +165,7 @@ export default function TeacherDashboard() {
   return (
     <div className="space-y-8 animate-fade-in-up pb-24 md:pb-10 max-w-7xl mx-auto">
       
-      {/* --- HEADER & CONTROLS --- */}
+      {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-white/5 pb-6">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Teacher Dashboard</h1>
@@ -142,7 +173,6 @@ export default function TeacherDashboard() {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Custom Month Picker */}
           <div className="relative group w-full md:w-auto">
             <div className="absolute left-3 top-2.5 text-zinc-500 pointer-events-none z-10"><CalendarDays className="w-4 h-4" /></div>
             <input 
@@ -153,7 +183,6 @@ export default function TeacherDashboard() {
             />
           </div>
 
-          {/* Checkout Button (If Active) */}
           {todayRecord && !todayRecord.raw_check_out && (
             <button 
               onClick={handleCheckout} 
@@ -165,7 +194,7 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
-      {/* --- STATS OVERVIEW CARDS --- */}
+      {/* --- STATS CARDS --- */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard label="Attendance Rate" value={`${stats.attendanceRate}%`} icon={<BarChart3 className="w-5 h-5" />} color="indigo" />
         <StatCard label="Days Present" value={stats.present} icon={<CheckCircle className="w-5 h-5" />} color="emerald" />
@@ -173,60 +202,87 @@ export default function TeacherDashboard() {
         <StatCard label="Working Days" value={stats.workingDays} icon={<Briefcase className="w-5 h-5" />} color="zinc" />
       </div>
 
-      {/* --- MAIN CONTENT TABS --- */}
+      {/* --- CONTENT TABS --- */}
       <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-xl min-h-[500px] flex flex-col">
         
-        {/* Tab Navigation */}
         <div className="flex items-center gap-1 p-2 border-b border-white/5 bg-white/5 overflow-x-auto">
           <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label="Overview" icon={<BarChart3 className="w-4 h-4" />} />
           <TabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} label="Daily Logs" icon={<Clock className="w-4 h-4" />} />
           <TabButton active={activeTab === 'absent'} onClick={() => setActiveTab('absent')} label="Absent Report" icon={<AlertCircle className="w-4 h-4" />} />
         </div>
 
-        {/* Tab Content */}
         <div className="p-0 flex-1 bg-zinc-950/30 flex flex-col">
           
-          {/* VIEW: OVERVIEW */}
+          {/* 1. OVERVIEW TAB */}
           {activeTab === 'overview' && (
             <div className="p-6 space-y-8 animate-fade-in">
-              {/* Today's Status Box */}
-              <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/10 rounded-2xl p-8 relative overflow-hidden group hover:border-white/20 transition-all">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+              
+              {/* TODAY'S STATUS CARD */}
+              <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-white/20 transition-all shadow-2xl">
+                {/* Decoration */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+                
+                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
                   
-                  {/* Status Circle */}
-                  <div className={`
-                    p-6 rounded-3xl flex items-center justify-center shadow-2xl
-                    ${todayRecord 
-                      ? (todayRecord.raw_check_out 
-                        ? 'bg-emerald-500/10 text-emerald-400 shadow-emerald-500/10' 
-                        : 'bg-amber-500/10 text-amber-400 shadow-amber-500/10') 
-                      : 'bg-zinc-800 text-zinc-500 shadow-black/50'}
-                  `}>
-                    {todayRecord ? (todayRecord.raw_check_out ? <CheckCircle className="w-12 h-12" /> : <Clock className="w-12 h-12 animate-pulse" />) : <XCircle className="w-12 h-12" />}
-                  </div>
-
-                  {/* Text Details */}
-                  <div className="text-center md:text-left">
-                    <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-2">Today's Status</h3>
-                    <p className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
-                      {todayRecord ? (todayRecord.raw_check_out ? 'Shift Completed' : 'Checked In') : 'Not Checked In'}
-                    </p>
-                    <div className="inline-flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
-                       <Clock className="w-4 h-4 text-zinc-400" />
-                       <span className="text-zinc-300 font-mono text-sm">
-                         {todayRecord 
-                           ? `IN: ${todayRecord.check_in_ist || '--:--'}  •  OUT: ${todayRecord.check_out_ist || '--:--'}`
-                           : 'Waiting for check-in...'}
-                       </span>
+                  {/* Left: Status Indicator */}
+                  <div className="flex items-center gap-6">
+                    <div className={`
+                      w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg border border-white/5
+                      ${todayRecord 
+                        ? (todayRecord.raw_check_out 
+                          ? 'bg-emerald-500/10 text-emerald-400' 
+                          : 'bg-amber-500/10 text-amber-400') 
+                        : 'bg-zinc-800 text-zinc-500'}
+                    `}>
+                      {todayRecord ? (todayRecord.raw_check_out ? <CheckCircle className="w-10 h-10" /> : <Clock className="w-10 h-10 animate-pulse" />) : <XCircle className="w-10 h-10" />}
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">
+                        {todayRecord ? new Date().toLocaleDateString('en-IN', { weekday: 'long' }) : 'Today'}
+                      </h3>
+                      <p className="text-3xl font-bold text-white tracking-tight">
+                        {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                      <p className={`text-sm font-bold mt-2 ${todayRecord ? (todayRecord.raw_check_out ? 'text-emerald-400' : 'text-amber-400') : 'text-zinc-500'}`}>
+                        {todayRecord ? (todayRecord.raw_check_out ? 'Shift Completed' : 'Currently Checked In') : 'Not Checked In'}
+                      </p>
                     </div>
                   </div>
+
+                  {/* Right: Timings (The requested change) */}
+                  {todayRecord ? (
+                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                      <div className="flex-1 bg-black/40 border border-white/5 rounded-xl p-4 min-w-[140px]">
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Check In Time</p>
+                        <p className="text-xl font-mono font-bold text-emerald-400">
+                          {formatTimeOnly(todayRecord.check_in_ist)}
+                        </p>
+                      </div>
+                      
+                      <div className="hidden sm:flex items-center justify-center text-zinc-600">
+                        <ArrowRight className="w-5 h-5" />
+                      </div>
+
+                      <div className="flex-1 bg-black/40 border border-white/5 rounded-xl p-4 min-w-[140px]">
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Check Out Time</p>
+                        <p className={`text-xl font-mono font-bold ${todayRecord.check_out_ist ? 'text-amber-400' : 'text-zinc-600'}`}>
+                          {todayRecord.check_out_ist ? formatTimeOnly(todayRecord.check_out_ist) : '--:--:--'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-zinc-800/30 border border-white/5 rounded-xl p-6 text-center w-full md:w-auto min-w-[300px]">
+                      <p className="text-zinc-500 text-sm">Please scan the campus QR code to verify your location and start your shift.</p>
+                    </div>
+                  )}
+
                 </div>
               </div>
             </div>
           )}
 
-          {/* VIEW: DAILY LOGS (Paginated) */}
+          {/* 2. DAILY LOGS TAB */}
           {activeTab === 'logs' && (
             <div className="flex flex-col h-full animate-fade-in">
               <div className="overflow-x-auto flex-1">
@@ -235,60 +291,46 @@ export default function TeacherDashboard() {
                     <tr>
                       <th className="px-6 py-4">Date</th>
                       <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Check In (IST)</th>
-                      <th className="px-6 py-4">Check Out (IST)</th>
+                      <th className="px-6 py-4">Check In</th>
+                      <th className="px-6 py-4">Check Out</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {getPaginatedData(history).map((record) => (
                       <tr key={record.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="px-6 py-4 font-mono text-zinc-300 group-hover:text-white transition-colors">{record.date}</td>
+                        <td className="px-6 py-4 font-mono text-zinc-300 group-hover:text-white transition-colors">
+                          {formatDisplayDate(record.date)}
+                        </td>
                         <td className="px-6 py-4">
                           <StatusBadge status={record.status} />
                         </td>
                         <td className="px-6 py-4 text-zinc-400 font-mono">
-                          {record.check_in_ist ? <span className="text-emerald-400">{record.check_in_ist}</span> : '-'}
+                          {record.check_in_ist ? (
+                            <span className="text-emerald-400 bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/10">
+                              {formatTimeOnly(record.check_in_ist)}
+                            </span>
+                          ) : '-'}
                         </td>
                         <td className="px-6 py-4 text-zinc-400 font-mono">
-                          {record.check_out_ist ? <span className="text-amber-400">{record.check_out_ist}</span> : '-'}
+                          {record.check_out_ist ? (
+                            <span className="text-amber-400 bg-amber-500/5 px-2 py-1 rounded border border-amber-500/10">
+                              {formatTimeOnly(record.check_out_ist)}
+                            </span>
+                          ) : '-'}
                         </td>
                       </tr>
                     ))}
                     {history.length === 0 && (
-                      <tr><td colSpan={4} className="px-6 py-12 text-center text-zinc-500">No records found for this period.</td></tr>
+                      <tr><td colSpan={4} className="px-6 py-12 text-center text-zinc-500">No records found.</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
-              
-              {/* Pagination Footer */}
-              {history.length > 0 && (
-                <div className="p-4 border-t border-white/5 bg-black/20 flex justify-between items-center">
-                  <p className="text-xs text-zinc-500">
-                    Showing {Math.min((currentPage - 1) * rowsPerPage + 1, history.length)} - {Math.min(currentPage * rowsPerPage, history.length)} of {history.length}
-                  </p>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <ChevronLeft className="w-4 h-4 text-zinc-400" />
-                    </button>
-                    <button 
-                      onClick={() => setCurrentPage(p => Math.min(totalPages(history.length), p + 1))}
-                      disabled={currentPage === totalPages(history.length)}
-                      className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <ChevronRight className="w-4 h-4 text-zinc-400" />
-                    </button>
-                  </div>
-                </div>
-              )}
+              <PaginationFooter currentPage={currentPage} totalPages={totalPages(history.length)} onPageChange={setCurrentPage} totalItems={history.length} />
             </div>
           )}
 
-          {/* VIEW: ABSENT REPORT (Paginated) */}
+          {/* 3. ABSENT REPORT TAB */}
           {activeTab === 'absent' && (
             <div className="flex flex-col h-full animate-fade-in">
               <div className="overflow-x-auto flex-1">
@@ -302,7 +344,9 @@ export default function TeacherDashboard() {
                   <tbody className="divide-y divide-white/5">
                     {getPaginatedData(history.filter(r => r.status === 'absent')).map((record) => (
                       <tr key={record.id} className="hover:bg-red-500/5 transition-colors">
-                        <td className="px-6 py-4 font-mono text-zinc-300">{record.date}</td>
+                        <td className="px-6 py-4 font-mono text-zinc-300">
+                          {formatDisplayDate(record.date)}
+                        </td>
                         <td className="px-6 py-4"><StatusBadge status="absent" /></td>
                       </tr>
                     ))}
@@ -330,21 +374,15 @@ export default function TeacherDashboard() {
    SUB-COMPONENTS
 ========================= */
 
-function StatCard({ label, value, icon, color }: { label: string, value: string | number, icon: React.ReactNode, color: string }) {
+function StatCard({ label, value, icon, color }: any) {
   const colors: any = {
     indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:shadow-indigo-500/10',
     emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:shadow-emerald-500/10',
     red: 'bg-red-500/10 text-red-400 border-red-500/20 hover:shadow-red-500/10',
     zinc: 'bg-zinc-800/50 text-zinc-400 border-zinc-700/50 hover:shadow-white/5',
   };
-
   return (
-    <div className={`
-      p-5 rounded-2xl border ${colors[color]} 
-      flex flex-col justify-between h-28 
-      transition-all duration-300 hover:scale-[1.03] hover:shadow-lg
-      cursor-default
-    `}>
+    <div className={`p-5 rounded-2xl border ${colors[color]} flex flex-col justify-between h-28 transition-all hover:scale-[1.02] hover:shadow-lg cursor-default`}>
       <div className="flex justify-between items-start">
         <p className="text-[11px] font-bold uppercase tracking-wider opacity-70">{label}</p>
         <div className={`p-1.5 rounded-lg bg-white/5`}>{icon}</div>
@@ -356,15 +394,7 @@ function StatCard({ label, value, icon, color }: { label: string, value: string 
 
 function TabButton({ active, onClick, label, icon }: any) {
   return (
-    <button 
-      onClick={onClick}
-      className={`
-        flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
-        ${active 
-          ? 'bg-zinc-800 text-white shadow-lg border border-white/5' 
-          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
-      `}
-    >
+    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? 'bg-zinc-800 text-white shadow-lg border border-white/5' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}`}>
       {icon} {label}
     </button>
   );
@@ -372,15 +402,20 @@ function TabButton({ active, onClick, label, icon }: any) {
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'present') {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-        <CheckCircle className="w-3 h-3" /> Present
-      </span>
-    );
+    return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><CheckCircle className="w-3 h-3" /> Present</span>;
   }
+  return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20"><XCircle className="w-3 h-3" /> Absent</span>;
+}
+
+function PaginationFooter({ currentPage, totalPages, onPageChange, totalItems }: any) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
-      <XCircle className="w-3 h-3" /> Absent
-    </span>
+    <div className="p-4 border-t border-white/5 bg-black/20 flex justify-between items-center">
+      <p className="text-xs text-zinc-500">Total Records: {totalItems}</p>
+      <div className="flex gap-2">
+        <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
+        <span className="text-xs text-zinc-400 px-2 py-1">Page {currentPage} of {totalPages || 1}</span>
+        <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0} className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>
+      </div>
+    </div>
   );
 }
