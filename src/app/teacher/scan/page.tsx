@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
-import { QrCode, MapPin, Camera, AlertCircle, CheckCircle2, ScanLine } from 'lucide-react';
+import { QrCode, MapPin, Zap, ShieldCheck } from 'lucide-react';
 
 /* =========================
-   IST HELPER (Inline)
+   IST HELPER (Logic Unchanged)
 ========================= */
 function getISTDateString() {
   return new Date().toLocaleDateString('en-CA', { 
@@ -15,24 +15,13 @@ function getISTDateString() {
 }
 
 /* =========================
-   DISTANCE CALC (METERS)
+   DISTANCE CALC (Logic Unchanged)
 ========================= */
-function distanceMeters(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-) {
+function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -42,23 +31,27 @@ function distanceMeters(
 export default function TeacherScanPage() {
   const scannedRef = useRef(false);
   const scannerRef = useRef<any>(null);
-  const [cameraActive, setCameraActive] = useState(true);
+  const [isScanning, setIsScanning] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     async function startScanner() {
-      // Dynamic import for Html5QrcodeScanner
+      // Dynamic import
       const { Html5QrcodeScanner } = await import('html5-qrcode');
       if (!mounted) return;
 
+      // CONFIGURATION UPDATE: Added videoConstraints for Back Camera
       const scanner = new Html5QrcodeScanner(
         'reader',
         { 
           fps: 10, 
-          qrbox: 280,
+          qrbox: 260,
           aspectRatio: 1.0,
-          showTorchButtonIfSupported: true 
+          showTorchButtonIfSupported: true,
+          videoConstraints: {
+            facingMode: { ideal: "environment" } // Forces Back Camera
+          }
         },
         false
       );
@@ -67,15 +60,15 @@ export default function TeacherScanPage() {
 
       scanner.render(
         async (text: string) => {
-          // Prevent double scanning
           if (scannedRef.current) return;
           scannedRef.current = true;
+          setIsScanning(false); // UI Update
 
           try {
-            await scanner.clear(); // Stop camera immediately
-            setCameraActive(false);
+            await scanner.clear(); // Stop camera
 
-            toast.loading('Verifying location...', { id: 'verify' });
+            // Show loading toast
+            const toastId = toast.loading('Verifying Location & QR...');
 
             navigator.geolocation.getCurrentPosition(
               async (pos) => {
@@ -84,26 +77,22 @@ export default function TeacherScanPage() {
                   
                   // 1. Validate Format
                   if (parts.length !== 6) {
-                    toast.error('Invalid QR Format', { id: 'verify' });
-                    setTimeout(() => window.location.reload(), 2000); 
+                    toast.error('Invalid QR Format', { id: toastId });
+                    setTimeout(() => window.location.reload(), 2000);
                     return;
                   }
 
                   const [, qrDate, qLat, qLng, qRad, sig] = parts;
 
-                  // 2. Validate Date (RPC + Fallback)
+                  // 2. Validate Date
                   let today = '';
                   const { data } = await supabase.rpc('current_ist_date').single();
                   const dbDate = data as string | null;
-
-                  if (dbDate) {
-                    today = dbDate;
-                  } else {
-                    today = getISTDateString();
-                  }
+                  if (dbDate) today = dbDate;
+                  else today = getISTDateString();
 
                   if (qrDate !== today) {
-                    toast.error('QR Code Expired (Old Date)', { id: 'verify' });
+                    toast.error('QR Code Expired', { id: toastId });
                     setTimeout(() => window.location.reload(), 2000);
                     return;
                   }
@@ -111,95 +100,66 @@ export default function TeacherScanPage() {
                   // 3. Validate Signature
                   const secret = process.env.NEXT_PUBLIC_QR_SECRET;
                   if (!secret) {
-                    toast.error('System Error: Missing Secret Key', { id: 'verify' });
+                    toast.error('System Error: Missing Key', { id: toastId });
                     return;
                   }
-
-                  const expected = btoa(
-                    `${qrDate}|${qLat}|${qLng}|${qRad}|${secret}`
-                  );
+                  const expected = btoa(`${qrDate}|${qLat}|${qLng}|${qRad}|${secret}`);
 
                   if (sig !== expected) {
-                    toast.error('Fake QR Detected', { id: 'verify' });
+                    toast.error('Fake QR Detected', { id: toastId });
                     setTimeout(() => window.location.reload(), 2000);
                     return;
                   }
 
                   // 4. Validate Location
-                  const dist = distanceMeters(
-                    pos.coords.latitude,
-                    pos.coords.longitude,
-                    Number(qLat),
-                    Number(qLng)
-                  );
+                  const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, Number(qLat), Number(qLng));
 
                   if (dist > Number(qRad)) {
-                    toast.error(`Too far! You are ${Math.round(dist)}m away.`, { id: 'verify' });
+                    toast.error(`Too far! Move ${Math.round(dist)}m closer.`, { id: toastId });
                     setTimeout(() => window.location.reload(), 2000);
                     return;
                   }
 
-                  // 5. Authenticate User
+                  // 5. Authenticate
                   const { data: auth } = await supabase.auth.getUser();
                   if (!auth.user) {
-                    toast.error('Please login first', { id: 'verify' });
+                    toast.error('Session expired', { id: toastId });
                     return;
                   }
 
-                  const { data: teacher } = await supabase
-                    .from('teachers')
-                    .select('id')
-                    .eq('user_id', auth.user.id)
-                    .single();
-
+                  const { data: teacher } = await supabase.from('teachers').select('id').eq('user_id', auth.user.id).single();
                   if (!teacher) {
                     toast.error('Teacher profile not found', { id: 'verify' });
                     return;
                   }
 
                   // 6. Mark Attendance
-                  const { data: existing } = await supabase
-                    .from('teacher_attendance')
-                    .select('*')
-                    .eq('teacher_id', teacher.id)
-                    .eq('date', today)
-                    .maybeSingle(); 
-
+                  const { data: existing } = await supabase.from('teacher_attendance').select('*').eq('teacher_id', teacher.id).eq('date', today).maybeSingle();
                   const nowUTC = new Date().toISOString();
 
                   if (!existing) {
-                    // Check In
-                    const { error } = await supabase.from('teacher_attendance').insert({
-                      teacher_id: teacher.id,
-                      date: today,
-                      check_in: nowUTC,
-                      status: 'present',
-                    });
+                    const { error } = await supabase.from('teacher_attendance').insert({ teacher_id: teacher.id, date: today, check_in: nowUTC, status: 'present' });
                     if (error) throw error;
-                    toast.success('✅ Checked IN Successfully!', { id: 'verify' });
+                    toast.success('✅ Check-In Successful!', { id: toastId });
                   } else if (!existing.check_out) {
-                    // Check Out
-                    const { error } = await supabase
-                      .from('teacher_attendance')
-                      .update({ check_out: nowUTC })
-                      .eq('id', existing.id);
+                    const { error } = await supabase.from('teacher_attendance').update({ check_out: nowUTC }).eq('id', existing.id);
                     if (error) throw error;
-                    toast.success('👋 Checked OUT Successfully!', { id: 'verify' });
+                    toast.success('👋 Check-Out Successful!', { id: toastId });
                   } else {
-                    toast('Attendance already completed today.', { id: 'verify' });
+                    toast('Attendance already completed today.', { id: toastId });
                   }
                   
-                  // Optional: Redirect
+                  // Redirect
                   setTimeout(() => window.location.href = '/teacher/dashboard', 1500);
 
                 } catch (err) {
                   console.error(err);
-                  toast.error('Attendance failed. Try again.', { id: 'verify' });
+                  toast.error('Attendance failed. Try again.', { id: toastId });
                   setTimeout(() => window.location.reload(), 2000);
                 }
               },
               (err) => {
-                 toast.error('Location permission denied', { id: 'verify' });
+                 toast.error('Location Access Denied', { id: toastId });
                  scannedRef.current = false;
               },
               { enableHighAccuracy: true }
@@ -209,9 +169,7 @@ export default function TeacherScanPage() {
             scannedRef.current = false;
           }
         },
-        (errorMessage) => {
-          // Parse errors are common while scanning, ignore them
-        }
+        (errorMessage) => { /* scanning... */ }
       );
     }
 
@@ -226,93 +184,104 @@ export default function TeacherScanPage() {
   }, []);
 
   return (
-    <div className="min-h-[85vh] flex flex-col items-center justify-center p-4 animate-fade-in-up">
+    <div className="min-h-[80vh] flex flex-col items-center justify-center p-4 animate-fade-in-up">
       
-      {/* SCANNER CARD */}
-      <div className="w-full max-w-md bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-3xl shadow-2xl overflow-hidden relative">
+      {/* SCANNER CONTAINER */}
+      <div className="w-full max-w-sm relative">
         
-        {/* Header */}
-        <div className="p-6 text-center border-b border-white/5 bg-white/5">
-          <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 mb-3 shadow-lg shadow-indigo-500/10">
-            <QrCode className="w-8 h-8" />
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Attendance Scanner</h1>
-          <p className="text-zinc-400 text-sm mt-1">Align the campus QR code within the frame</p>
+        {/* Card Header */}
+        <div className="absolute top-0 left-0 right-0 z-20 p-6 text-center bg-gradient-to-b from-black/80 to-transparent pt-8 rounded-t-3xl">
+          <h1 className="text-xl font-bold text-white tracking-tight flex items-center justify-center gap-2">
+            <QrCode className="w-5 h-5 text-indigo-400" /> 
+            Scan Attendance
+          </h1>
+          <p className="text-xs text-zinc-300 mt-1 font-medium">Align QR code within the frame</p>
         </div>
 
-        {/* Camera Area */}
-        <div className="relative bg-black min-h-[350px] flex items-center justify-center">
-          {!cameraActive && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-900/90 backdrop-blur-sm text-center p-6 space-y-3">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 animate-bounce" />
-              <h3 className="text-lg font-bold text-white">Scan Complete</h3>
-              <p className="text-zinc-400 text-sm">Processing your attendance...</p>
+        {/* The Actual Scanner */}
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl bg-black">
+          
+          {/* Overlay UI (The "Professional" Look) */}
+          {isScanning && (
+            <div className="absolute inset-0 z-10 pointer-events-none">
+              {/* Corners */}
+              <div className="absolute top-6 left-6 w-12 h-12 border-t-4 border-l-4 border-indigo-500 rounded-tl-xl"></div>
+              <div className="absolute top-6 right-6 w-12 h-12 border-t-4 border-r-4 border-indigo-500 rounded-tr-xl"></div>
+              <div className="absolute bottom-6 left-6 w-12 h-12 border-b-4 border-l-4 border-indigo-500 rounded-bl-xl"></div>
+              <div className="absolute bottom-6 right-6 w-12 h-12 border-b-4 border-r-4 border-indigo-500 rounded-br-xl"></div>
+              
+              {/* Laser Animation */}
+              <div className="absolute top-[10%] left-[10%] right-[10%] h-0.5 bg-red-500/80 shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-scan"></div>
             </div>
           )}
-          
-          {/* The Scanner Library Mount Point */}
-          <div id="reader" className="w-full h-full [&_video]:object-cover [&_div]:!border-none" />
-          
-          {/* Custom Overlay (Visual Only) */}
-          {cameraActive && (
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <div className="w-64 h-64 border-2 border-indigo-500/50 rounded-3xl relative">
-                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-indigo-500 -mt-1 -ml-1 rounded-tl-xl"></div>
-                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-indigo-500 -mt-1 -mr-1 rounded-tr-xl"></div>
-                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-indigo-500 -mb-1 -ml-1 rounded-bl-xl"></div>
-                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-indigo-500 -mb-1 -mr-1 rounded-br-xl"></div>
-                
-                {/* Scanning Animation Line */}
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-indigo-400/80 shadow-[0_0_15px_rgba(99,102,241,0.8)] animate-scan"></div>
-              </div>
+
+          {/* Success Overlay */}
+          {!isScanning && (
+            <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in">
+              <ShieldCheck className="w-16 h-16 text-emerald-500 mb-4 animate-bounce" />
+              <h2 className="text-xl font-bold text-white">Processing...</h2>
+              <p className="text-zinc-400 text-sm mt-1">Verifying credentials</p>
             </div>
           )}
+
+          {/* Library Mount Point */}
+          <div id="reader" className="w-full aspect-square bg-zinc-900" />
         </div>
 
         {/* Footer Status */}
-        <div className="p-4 bg-zinc-950/50 border-t border-white/5">
-          <div className="flex items-center justify-center gap-6 text-xs font-medium text-zinc-500">
-            <div className="flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Camera Active</span>
-            </div>
-            <div className="w-px h-3 bg-white/10"></div>
-            <div className="flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Locating...</span>
-            </div>
+        <div className="mt-6 flex items-center justify-center gap-6">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 border border-white/10 text-xs font-medium text-zinc-400">
+            <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+            <span>GPS Active</span>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 border border-white/10 text-xs font-medium text-zinc-400">
+            <Zap className="w-3.5 h-3.5 text-yellow-500" />
+            <span>Auto-Focus</span>
           </div>
         </div>
+
       </div>
 
-      {/* Helper Text */}
-      <div className="mt-6 flex items-start gap-3 max-w-sm px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/10 text-amber-500/80 text-xs">
-        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-        <p>Ensure you are within the school premises and have allowed location access to mark attendance successfully.</p>
-      </div>
-
-      {/* Global CSS for Scanner Customization */}
+      {/* Global Styles to Override/Hide Ugly Library UI */}
       <style jsx global>{`
-        #reader { border: none !important; }
-        #reader__scan_region { display: none !important; }
-        #reader__dashboard_section_csr button { 
-          color: white; 
-          background: rgba(255,255,255,0.1); 
-          border: 1px solid rgba(255,255,255,0.2); 
-          padding: 6px 12px; 
-          border-radius: 8px; 
-          margin-top: 10px;
-          font-size: 12px;
+        /* Hide the library's default stop button and header links */
+        #reader__dashboard_section_csr span, 
+        #reader__dashboard_section_swaplink {
+          display: none !important;
         }
-        #reader__dashboard_section_swaplink { display: none !important; }
+        
+        /* Make the camera permission button look decent just in case it shows */
+        #reader__dashboard_section_csr button {
+          background: #4F46E5 !important;
+          color: white !important;
+          border: none !important;
+          padding: 10px 20px !important;
+          border-radius: 12px !important;
+          font-weight: 600 !important;
+          font-size: 14px !important;
+          margin-top: 20px !important;
+        }
+
+        /* Ensure video fills the curved container */
+        #reader video {
+          object-fit: cover !important;
+          border-radius: 24px !important;
+        }
+        
+        /* Remove default borders */
+        #reader {
+          border: none !important;
+        }
+
+        /* Scan Animation */
         @keyframes scan {
-          0% { top: 10%; opacity: 0; }
+          0% { top: 15%; opacity: 0; }
           10% { opacity: 1; }
           90% { opacity: 1; }
-          100% { top: 90%; opacity: 0; }
+          100% { top: 85%; opacity: 0; }
         }
         .animate-scan {
-          animation: scan 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
       `}</style>
     </div>
