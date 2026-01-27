@@ -5,17 +5,14 @@ import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { 
   Search, Download, FileText, Table as TableIcon, ChevronDown, 
-  Loader2, Ban, Check, Trash2, User, BookOpen, Phone, Calendar,
-  MoreHorizontal, ChevronLeft, ChevronRight, Plus, Eye, Sparkles, GraduationCap
+  Loader2, Ban, Check, Trash2, User, BookOpen, Phone,
+  MoreHorizontal, ChevronLeft, ChevronRight, Plus, Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 
-/* =========================
-   TYPES
-========================= */
 type Teacher = {
   id: string;
   full_name: string;
@@ -25,34 +22,24 @@ type Teacher = {
   status: string;
 };
 
-/* =========================
-   AVATAR GENERATOR
-========================= */
+// Reused Avatar Component
 function Avatar({ name }: { name: string }) {
   const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   const gradients = [
-    'from-pink-500 to-rose-600',
-    'from-indigo-500 to-violet-600',
-    'from-emerald-500 to-teal-600',
-    'from-amber-500 to-orange-600',
-    'from-cyan-500 to-blue-600',
+    'from-pink-500 to-rose-600', 'from-indigo-500 to-violet-600',
+    'from-emerald-500 to-teal-600', 'from-amber-500 to-orange-600', 'from-cyan-500 to-blue-600',
   ];
   const bg = gradients[name.length % gradients.length];
-
   return (
-    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${bg} p-[2px] shadow-lg`}>
-      <div className="w-full h-full rounded-full bg-zinc-900/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
-        <span className="text-xs font-bold text-white tracking-wider">{initials}</span>
+    <div className={`w-9 h-9 min-w-[36px] rounded-full bg-gradient-to-br ${bg} p-[2px] shadow-sm`}>
+      <div className="w-full h-full rounded-full bg-zinc-900/90 backdrop-blur-sm flex items-center justify-center border border-white/10">
+        <span className="text-[10px] font-bold text-white tracking-wider">{initials}</span>
       </div>
     </div>
   );
 }
 
-/* =========================
-   MAIN COMPONENT
-========================= */
 export default function TeacherListPage() {
-  /* --- STATE --- */
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -61,297 +48,192 @@ export default function TeacherListPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  
   const exportRef = useRef<HTMLDivElement>(null);
 
-  /* --- LOGIC: DATA LOADING --- */
   async function loadTeachers() {
     setLoading(true);
     const { data, error } = await supabase
       .from('teachers')
       .select('id, full_name, subject, phone, join_date, status')
       .order('full_name');
-
-    if (error) {
-      toast.error('Failed to load teachers');
-    } else {
-      setTeachers(data ?? []);
-    }
+    if (error) toast.error('Failed to load teachers');
+    else setTeachers(data ?? []);
     setLoading(false);
   }
 
-  /* --- LOGIC: ACTIONS --- */
+  useEffect(() => { loadTeachers(); }, []);
+
+  // Actions
   async function toggleStatus(id: string, status: string) {
     const newStatus = status === 'active' ? 'inactive' : 'active';
-    const { error } = await supabase
-      .from('teachers')
-      .update({ status: newStatus })
-      .eq('id', id);
-
-    if (error) {
-      toast.error('Status update failed');
-    } else {
-      toast.success(`Teacher marked as ${newStatus}`);
-      loadTeachers();
-    }
+    const { error } = await supabase.from('teachers').update({ status: newStatus }).eq('id', id);
+    if (error) toast.error('Status update failed');
+    else { toast.success(`Marked as ${newStatus}`); loadTeachers(); }
   }
 
   async function deleteTeacher(id: string) {
     if (!confirm('Are you sure you want to delete this teacher? This cannot be undone.')) return;
-    
     const { error } = await supabase.from('teachers').delete().eq('id', id);
-    if (error) {
-      toast.error('Delete failed');
-    } else {
-      toast.success('Teacher deleted');
-      loadTeachers();
-    }
+    if (error) toast.error('Delete failed');
+    else { toast.success('Teacher deleted'); loadTeachers(); }
   }
 
-  useEffect(() => {
-    loadTeachers();
-  }, []);
-
-  // Close menus on outside click
+  // Click Outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
-        setShowExportMenu(false);
-      }
+      if (exportRef.current && !exportRef.current.contains(event.target as Node)) setShowExportMenu(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* --- LOGIC: FILTER & PAGINATION --- */
-  const filteredTeachers = teachers.filter(t => 
-    t.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (t.subject && t.subject.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
+  // Filter & Pagination
+  const filteredTeachers = teachers.filter(t => t.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || (t.subject && t.subject.toLowerCase().includes(searchQuery.toLowerCase())));
   const totalPages = Math.ceil(filteredTeachers.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedTeachers = filteredTeachers.slice(startIndex, startIndex + rowsPerPage);
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, rowsPerPage]);
 
-  /* --- LOGIC: EXPORT --- */
+  // Exports
   const exportToPDF = () => {
     const doc = new jsPDF();
-    doc.text(`Teachers Directory`, 14, 15);
     autoTable(doc, {
       head: [["Name", "Subject", "Phone", "Join Date", "Status"]],
       body: filteredTeachers.map(t => [t.full_name, t.subject, t.phone, t.join_date, t.status]),
-      startY: 20, theme: 'grid'
     });
-    doc.save('teachers_list.pdf'); setShowExportMenu(false);
+    doc.save('teachers.pdf'); setShowExportMenu(false);
   };
 
   const exportToExcel = () => {
     const csv = ["Name,Subject,Phone,Join Date,Status"].concat(filteredTeachers.map(t => `"${t.full_name}",${t.subject},${t.phone},${t.join_date},${t.status}`)).join('\n');
-    saveAs(new Blob([csv], { type: 'text/csv' }), 'teachers_list.csv'); setShowExportMenu(false);
+    saveAs(new Blob([csv], { type: 'text/csv' }), 'teachers.csv'); setShowExportMenu(false);
   };
 
-  /* =========================
-     UI RENDER
-  ========================= */
   return (
-    <div className="space-y-8 animate-fade-in-up pb-20 md:pb-10 perspective-1000">
+    <div className="space-y-6 md:space-y-8 animate-fade-in-up pb-20 md:pb-10 perspective-1000">
       
-      {/* --- HEADER --- */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
-            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Faculty Database</span>
+            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Faculty Active</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Teachers Directory</h1>
           <p className="text-zinc-400 text-sm mt-1">Manage staff profiles and assignments.</p>
         </div>
 
-        {/* Action Group */}
-        <div className="flex flex-wrap gap-3 w-full md:w-auto">
-          
-          {/* Export Dropdown */}
-          <div className="relative flex-1 md:flex-none z-20" ref={exportRef}>
-            <button 
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="w-full md:w-auto flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-300 px-5 py-2.5 rounded-xl font-medium transition-all hover:border-white/20 active:scale-95"
-            >
-              <Download className="w-4 h-4" />
-              <span>Export</span>
-              <ChevronDown className={`w-3 h-3 ml-1 opacity-50 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          {/* Export */}
+          <div className="relative w-full sm:w-auto z-20" ref={exportRef}>
+            <button onClick={() => setShowExportMenu(!showExportMenu)} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-300 px-5 py-3 md:py-2.5 rounded-xl font-medium transition-all hover:border-white/20 active:scale-95">
+              <Download className="w-4 h-4" /> <span>Export</span> <ChevronDown className={`w-3 h-3 ml-1 opacity-50 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
             </button>
             {showExportMenu && (
               <div className="absolute top-full right-0 mt-2 w-full md:w-48 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-scale-up ring-1 ring-white/5">
-                <button onClick={exportToPDF} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/10 text-left transition-colors"><FileText className="w-4 h-4 text-rose-500" /> PDF Document</button>
+                <button onClick={exportToPDF} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/10 text-left transition-colors"><FileText className="w-4 h-4 text-rose-500" /> PDF</button>
                 <div className="h-px bg-white/5"></div>
-                <button onClick={exportToExcel} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/10 text-left transition-colors"><TableIcon className="w-4 h-4 text-emerald-500" /> Excel Spreadsheet</button>
+                <button onClick={exportToExcel} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/10 text-left transition-colors"><TableIcon className="w-4 h-4 text-emerald-500" /> Excel</button>
               </div>
             )}
           </div>
-
-          {/* Add Teacher Button */}
-          <Link href="/admin/teachers/add" className="flex-1 md:flex-none">
-            <button className="w-full group relative flex items-center justify-center gap-2 bg-white text-black px-6 py-2.5 rounded-xl font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] transition-all hover:scale-[1.02] active:scale-95">
-              <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-              <span>Add Faculty</span>
+          {/* Add Button */}
+          <Link href="/admin/teachers/add" className="w-full sm:w-auto">
+            <button className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white text-black px-6 py-3 md:py-2.5 rounded-xl font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] transition-all hover:scale-[1.02] active:scale-95">
+              <Plus className="w-4 h-4" /> <span>Add Faculty</span>
             </button>
           </Link>
         </div>
       </div>
 
-      {/* --- FILTER BAR --- */}
+      {/* FILTER BAR */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-2 rounded-2xl relative z-10 shadow-lg">
-        {/* Search */}
         <div className="col-span-1 md:col-span-8 relative group">
           <Search className="absolute left-4 top-3.5 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
-          <input 
-            placeholder="Search by Name or Subject..." 
-            className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:bg-black/60 focus:border-indigo-500/50 outline-none transition-all placeholder:text-zinc-600 font-medium"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <input placeholder="Search by Name or Subject..." className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:bg-black/60 focus:border-indigo-500/50 outline-none transition-all placeholder:text-zinc-600 font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
-        
-        {/* Rows Per Page */}
         <div className="col-span-1 md:col-span-4 relative group">
            <div className="absolute left-4 top-3.5"><TableIcon className="w-4 h-4 text-zinc-500 group-focus-within:text-zinc-300 transition-colors" /></div>
-           <select 
-             className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-zinc-300 focus:bg-black/60 focus:border-white/20 outline-none transition-all appearance-none cursor-pointer font-medium"
-             value={rowsPerPage}
-             onChange={(e) => setRowsPerPage(Number(e.target.value))}
-           >
-             <option value={10} className="bg-zinc-900">10 Rows</option>
-             <option value={20} className="bg-zinc-900">20 Rows</option>
-             <option value={50} className="bg-zinc-900">50 Rows</option>
+           <select className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-zinc-300 focus:bg-black/60 focus:border-white/20 outline-none transition-all appearance-none cursor-pointer font-medium" value={rowsPerPage} onChange={(e) => setRowsPerPage(Number(e.target.value))}>
+             <option value={10}>10 Rows</option><option value={20}>20 Rows</option><option value={50}>50 Rows</option>
            </select>
            <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-zinc-600 pointer-events-none" />
         </div>
       </div>
 
-      {/* --- THE TABLE --- */}
+      {/* TABLE */}
       <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl flex flex-col relative">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse">
-            
-            {/* Header */}
-            <thead className="bg-black/40 border-b border-white/5 sticky top-0 z-10 backdrop-blur-md">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
+            {/* Exactly matching header widths to Students Table */}
+            <thead className="bg-black/40 border-b border-white/5">
               <tr>
-                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest pl-8 w-[250px]">Teacher Profile</th>
-                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Subject</th>
-                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Contact</th>
-                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Join Date</th>
-                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Status</th>
-                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest text-right pr-8">Actions</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest w-[280px] pl-8">Teacher Name</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest w-[160px]">Subject</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest w-[140px]">Contact</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest w-[120px]">Join Date</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest w-[120px]">Status</th>
+                <th className="px-6 py-5 text-[10px] font-bold uppercase text-zinc-500 tracking-widest w-[140px] text-right pr-8">Actions</th>
               </tr>
             </thead>
-            
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                // Skeleton Loader
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td className="px-8 py-4 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-white/5"></div>
-                      <div className="space-y-2"><div className="h-3 w-32 bg-white/5 rounded"></div><div className="h-2 w-20 bg-white/5 rounded"></div></div>
-                    </td>
-                    <td className="px-6 py-4"><div className="h-3 w-24 bg-white/5 rounded"></div></td>
+                    <td className="px-8 py-4 flex items-center gap-3"><div className="w-9 h-9 bg-white/5 rounded-full"></div><div className="h-3 w-32 bg-white/5 rounded"></div></td>
                     <td className="px-6 py-4"><div className="h-3 w-20 bg-white/5 rounded"></div></td>
-                    <td className="px-6 py-4"><div className="h-3 w-16 bg-white/5 rounded"></div></td>
-                    <td className="px-6 py-4"><div className="h-6 w-16 bg-white/5 rounded-full"></div></td>
+                    <td className="px-6 py-4"><div className="h-3 w-12 bg-white/5 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-3 w-12 bg-white/5 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-5 w-16 bg-white/5 rounded-full"></div></td>
                     <td className="px-6 py-4"></td>
                   </tr>
                 ))
-              ) : paginatedTeachers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-24 text-center text-zinc-500">
-                     <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/5">
-                       <Search className="w-8 h-8 opacity-40" />
-                     </div>
-                     <p className="text-lg font-medium text-white">No teachers found</p>
-                     <p className="text-sm mt-1">Try adjusting your search query.</p>
+              ) : paginatedTeachers.map((t) => (
+                <tr key={t.id} className="group hover:bg-white/[0.03] transition-colors relative">
+                  <td className="px-6 py-4 pl-8">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={t.full_name} />
+                      <div>
+                        <Link href={`/admin/teachers/${t.id}`} className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors">{t.full_name}</Link>
+                        <div className="text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5">Faculty</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                       <div className="p-1 rounded bg-indigo-500/10 text-indigo-400"><BookOpen className="w-3 h-3" /></div>
+                       <span className="text-sm font-medium text-zinc-300">{t.subject || 'N/A'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-zinc-400 font-mono">{t.phone}</td>
+                  <td className="px-6 py-4 text-sm text-zinc-500 font-mono">{t.join_date}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${t.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${t.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                      {t.status === 'active' ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 pr-8 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <Link href={`/admin/teachers/${t.id}`}><button className="p-2 rounded-lg text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-all"><Eye className="w-4 h-4" /></button></Link>
+                      <button onClick={() => toggleStatus(t.id, t.status)} className={`p-2 rounded-lg transition-all ${t.status === 'active' ? 'text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10' : 'text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10'}`}>{t.status === 'active' ? <Ban className="w-4 h-4" /> : <Check className="w-4 h-4" />}</button>
+                      <button onClick={() => deleteTeacher(t.id)} className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all"><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                paginatedTeachers.map((t) => (
-                  <tr 
-                    key={t.id} 
-                    className="group transition-all duration-300 hover:bg-white/[0.03] hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)] relative"
-                  >
-                    {/* Hover Indicator */}
-                    <td className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></td>
-
-                    <td className="px-6 py-4 pl-8">
-                      <div className="flex items-center gap-4">
-                        <Avatar name={t.full_name} />
-                        <div>
-                          <Link href={`/admin/teachers/${t.id}`} className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors">
-                            {t.full_name}
-                          </Link>
-                          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-zinc-500 group-hover:text-zinc-400">
-                             <User className="w-3 h-3" />
-                             <span>Faculty Member</span>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1 rounded bg-indigo-500/10 text-indigo-400">
-                           <BookOpen className="w-3.5 h-3.5" />
-                        </div>
-                        <span className="text-sm font-medium text-zinc-300">{t.subject || 'General'}</span>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 text-zinc-400 font-mono text-xs">
-                            <Phone className="w-3 h-3" /> {t.phone || 'N/A'}
-                        </div>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-zinc-500 font-mono">{t.join_date}</td>
-                    
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${t.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${t.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
-                        {t.status.toUpperCase()}
-                      </span>
-                    </td>
-                    
-                    <td className="px-6 py-4 pr-8 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                        <Link href={`/admin/teachers/${t.id}`}>
-                           <button className="p-2 rounded-lg text-zinc-400 hover:text-indigo-400 hover:bg-white/5 transition-all" title="View Profile">
-                             <Eye className="w-4 h-4" />
-                           </button>
-                        </Link>
-                        <button onClick={() => toggleStatus(t.id, t.status)} className={`p-2 rounded-lg transition-all ${t.status === 'active' ? 'text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10' : 'text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10'}`} title={t.status === 'active' ? 'Deactivate' : 'Activate'}>
-                          {t.status === 'active' ? <Ban className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                        </button>
-                        <button onClick={() => deleteTeacher(t.id)} className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Delete Record">
-                           <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
 
-        {/* Footer */}
+        {/* Reused Pagination Logic */}
         <div className="p-4 border-t border-white/5 flex items-center justify-between bg-black/40 backdrop-blur-md">
-          <p className="text-xs text-zinc-500 font-medium">
-            Showing <span className="text-white">{Math.min((currentPage - 1) * rowsPerPage + 1, filteredTeachers.length)} - {Math.min(currentPage * rowsPerPage, filteredTeachers.length)}</span> of <span className="text-white">{filteredTeachers.length}</span> teachers
-          </p>
+          <p className="text-xs text-zinc-500 font-medium">Showing <span className="text-white">{Math.min((currentPage - 1) * rowsPerPage + 1, filteredTeachers.length)} - {Math.min(currentPage * rowsPerPage, filteredTeachers.length)}</span> of <span className="text-white">{filteredTeachers.length}</span></p>
           <div className="flex items-center gap-2">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"><ChevronLeft className="w-4 h-4 text-zinc-300" /></button>
+            <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className="p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"><ChevronLeft className="w-4 h-4 text-zinc-300" /></button>
             <span className="text-xs font-mono text-zinc-400 px-2">Page {currentPage} of {totalPages || 1}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"><ChevronRight className="w-4 h-4 text-zinc-300" /></button>
+            <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages || totalPages === 0} className="p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"><ChevronRight className="w-4 h-4 text-zinc-300" /></button>
           </div>
         </div>
       </div>
