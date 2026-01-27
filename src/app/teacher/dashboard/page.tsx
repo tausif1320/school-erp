@@ -4,10 +4,9 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import { 
-  CheckCircle, XCircle, Clock, Calendar, 
-  LogOut, Briefcase, ChevronDown, Loader2, 
-  BarChart3, AlertCircle, ChevronLeft, ChevronRight,
-  CalendarDays, ArrowRight, Sparkles, Coffee
+  CheckCircle, XCircle, Clock, CalendarDays, 
+  LogOut, Briefcase, ChevronLeft, ChevronRight,
+  ArrowRight, Sparkles, Coffee, BarChart3, Sun, Moon
 } from 'lucide-react';
 
 /* =========================
@@ -48,7 +47,7 @@ function formatTimeOnly(timeStr: string | null) {
 }
 
 /* =========================
-   PREMIUM 3D STAT CARD
+   ADAPTIVE PREMIUM STAT CARD
 ========================= */
 function PremiumStatCard({ label, value, icon, color, subText }: any) {
   const ref = useRef<HTMLDivElement>(null);
@@ -62,11 +61,32 @@ function PremiumStatCard({ label, value, icon, color, subText }: any) {
     setRotation({ x: y * -10, y: x * 10 });
   };
 
+  // Colors adapted for BOTH Light (Soft/Pastel) and Dark (Neon/Glow)
   const colors: any = {
-    indigo: { bg: 'from-indigo-500/20 to-violet-600/5', border: 'border-indigo-500/20', icon: 'text-indigo-400', glow: 'shadow-indigo-500/20' },
-    emerald: { bg: 'from-emerald-500/20 to-teal-600/5', border: 'border-emerald-500/20', icon: 'text-emerald-400', glow: 'shadow-emerald-500/20' },
-    rose: { bg: 'from-rose-500/20 to-red-600/5', border: 'border-rose-500/20', icon: 'text-rose-400', glow: 'shadow-rose-500/20' },
-    amber: { bg: 'from-amber-500/20 to-orange-600/5', border: 'border-amber-500/20', icon: 'text-amber-400', glow: 'shadow-amber-500/20' },
+    indigo: { 
+      bg: 'from-indigo-50 to-white dark:from-indigo-500/20 dark:to-violet-600/5', 
+      border: 'border-indigo-100 dark:border-indigo-500/20', 
+      icon: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-white/5',
+      text: 'text-indigo-900 dark:text-white'
+    },
+    emerald: { 
+      bg: 'from-emerald-50 to-white dark:from-emerald-500/20 dark:to-teal-600/5', 
+      border: 'border-emerald-100 dark:border-emerald-500/20', 
+      icon: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-white/5',
+      text: 'text-emerald-900 dark:text-white'
+    },
+    rose: { 
+      bg: 'from-rose-50 to-white dark:from-rose-500/20 dark:to-red-600/5', 
+      border: 'border-rose-100 dark:border-rose-500/20', 
+      icon: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-white/5',
+      text: 'text-rose-900 dark:text-white'
+    },
+    amber: { 
+      bg: 'from-amber-50 to-white dark:from-amber-500/20 dark:to-orange-600/5', 
+      border: 'border-amber-100 dark:border-amber-500/20', 
+      icon: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-white/5',
+      text: 'text-amber-900 dark:text-white'
+    },
   };
   const theme = colors[color] || colors.indigo;
 
@@ -78,26 +98,30 @@ function PremiumStatCard({ label, value, icon, color, subText }: any) {
       style={{ transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`, transformStyle: 'preserve-3d' }}
       className={`
         relative group overflow-hidden rounded-3xl p-6 h-36
-        bg-zinc-900/40 backdrop-blur-xl border border-white/5
+        bg-white dark:bg-zinc-900/40 
+        backdrop-blur-xl border 
+        ${theme.border} dark:border-white/5
+        shadow-xl shadow-zinc-200/50 dark:shadow-none
         transition-all duration-300 ease-out
-        hover:shadow-2xl hover:border-white/10
+        hover:shadow-2xl hover:scale-[1.02]
       `}
     >
       {/* Background Gradient */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${theme.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+      <div className={`absolute inset-0 bg-gradient-to-br ${theme.bg} opacity-100 dark:opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+      <div className={`absolute inset-0 bg-gradient-to-br ${theme.bg} opacity-0 dark:opacity-100 group-hover:opacity-100 transition-opacity duration-500`} />
       
       <div className="relative z-10 h-full flex flex-col justify-between transform transition-transform duration-200" style={{ transform: "translateZ(20px)" }}>
         <div className="flex justify-between items-start">
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 group-hover:text-zinc-400 transition-colors">{label}</span>
-            <span className="text-zinc-600 text-[10px] font-medium mt-0.5">{subText}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-400 transition-colors">{label}</span>
+            <span className="text-zinc-400 dark:text-zinc-600 text-[10px] font-medium mt-0.5">{subText}</span>
           </div>
-          <div className={`p-2.5 rounded-2xl bg-white/5 border border-white/5 ${theme.icon} group-hover:scale-110 transition-transform`}>
+          <div className={`p-2.5 rounded-2xl border border-transparent dark:border-white/5 ${theme.icon} group-hover:scale-110 transition-transform`}>
             {icon}
           </div>
         </div>
         <div className="flex items-end gap-2">
-           <span className="text-4xl font-bold text-white tracking-tighter">{value}</span>
+           <span className={`text-4xl font-bold tracking-tighter ${theme.text}`}>{value}</span>
         </div>
       </div>
     </div>
@@ -174,25 +198,25 @@ export default function TeacherDashboard() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Workspace Active</span>
+            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-widest">Workspace Active</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-zinc-400 tracking-tighter">
+          <h1 className="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-white tracking-tighter">
             Faculty Dashboard
           </h1>
-          <p className="text-zinc-400 text-sm mt-2 font-medium">Welcome back. Here is your daily overview.</p>
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-2 font-medium">Welcome back. Here is your daily overview.</p>
         </div>
 
         <div className="flex items-center gap-4 w-full md:w-auto">
-          {/* Custom Date Picker */}
+          {/* Custom Date Picker (Adaptive) */}
           <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-            <div className="relative flex items-center bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5">
-               <CalendarDays className="w-4 h-4 text-zinc-400 mr-3" />
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-10 dark:opacity-20 group-hover:opacity-30 transition duration-500"></div>
+            <div className="relative flex items-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-2.5 shadow-sm">
+               <CalendarDays className="w-4 h-4 text-zinc-500 dark:text-zinc-400 mr-3" />
                <input 
                  type="month"
                  value={selectedMonth}
                  onChange={(e) => setSelectedMonth(e.target.value)}
-                 className="bg-transparent border-none outline-none text-sm text-white w-32 cursor-pointer font-medium"
+                 className="bg-transparent border-none outline-none text-sm text-zinc-700 dark:text-white w-32 cursor-pointer font-medium"
                />
             </div>
           </div>
@@ -200,7 +224,7 @@ export default function TeacherDashboard() {
           {todayRecord && !todayRecord.raw_check_out && (
             <button 
               onClick={handleCheckout} 
-              className="group relative px-6 py-2.5 rounded-xl font-bold text-sm text-white overflow-hidden"
+              className="group relative px-6 py-2.5 rounded-xl font-bold text-sm text-white overflow-hidden shadow-lg shadow-rose-500/20"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-rose-600 to-orange-600 transition-all duration-300 group-hover:scale-105"></div>
               <div className="relative flex items-center gap-2">
@@ -219,13 +243,19 @@ export default function TeacherDashboard() {
         <PremiumStatCard label="Working Days" subText="This Month" value={stats.workingDays} icon={<Briefcase className="w-5 h-5" />} color="amber" />
       </div>
 
-      {/* --- MAIN INTERFACE --- */}
-      <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] overflow-hidden shadow-2xl min-h-[600px] flex flex-col relative">
-        {/* Decorative Glow */}
+      {/* --- MAIN INTERFACE (Adaptive Glassmorphism) --- */}
+      <div className={`
+        bg-white/60 dark:bg-zinc-900/40 
+        backdrop-blur-2xl border border-zinc-200/50 dark:border-white/5 
+        rounded-[32px] overflow-hidden 
+        shadow-2xl shadow-zinc-200/50 dark:shadow-black/50
+        min-h-[600px] flex flex-col relative
+      `}>
+        {/* Decorative Glow (Visible mostly in dark mode) */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"></div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 p-3 border-b border-white/5">
+        <div className="flex items-center gap-2 p-3 border-b border-zinc-100 dark:border-white/5">
           <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label="Overview" />
           <TabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} label="History Logs" />
           <TabButton active={activeTab === 'absent'} onClick={() => setActiveTab('absent')} label="Absence Report" />
@@ -233,16 +263,17 @@ export default function TeacherDashboard() {
 
         <div className="flex-1 p-0 relative">
           
-          {/* 1. OVERVIEW: THE HERO CARD */}
+          {/* 1. OVERVIEW: THE HERO CARD (Adaptive) */}
           {activeTab === 'overview' && (
             <div className="p-8 h-full flex items-center justify-center animate-fade-in">
-              <div className="w-full relative overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl group">
+              <div className="w-full relative overflow-hidden rounded-[2rem] border border-zinc-100 dark:border-white/10 bg-white dark:bg-black shadow-2xl group">
                 
                 {/* Dynamic Background */}
                 <div className="absolute inset-0">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${todayRecord?.raw_check_out ? 'from-emerald-900/20 to-teal-900/10' : 'from-indigo-900/20 to-purple-900/10'} opacity-50`}></div>
-                  <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/5 blur-[80px] rounded-full animate-pulse-slow"></div>
-                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${todayRecord?.raw_check_out ? 'from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/10' : 'from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/10'} opacity-100 dark:opacity-50`}></div>
+                  {/* Blobs are lighter in Light Mode */}
+                  <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-200/20 dark:bg-white/5 blur-[80px] rounded-full animate-pulse-slow"></div>
+                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 dark:opacity-20 mix-blend-overlay"></div>
                 </div>
 
                 <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-10">
@@ -250,27 +281,28 @@ export default function TeacherDashboard() {
                   {/* Status Circle */}
                   <div className="flex items-center gap-8">
                      <div className="relative">
-                        <div className={`absolute inset-0 rounded-full blur-xl opacity-40 ${todayRecord ? (todayRecord.raw_check_out ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-zinc-500'}`}></div>
+                        {/* Glow color based on status */}
+                        <div className={`absolute inset-0 rounded-full blur-xl opacity-40 ${todayRecord ? (todayRecord.raw_check_out ? 'bg-emerald-400 dark:bg-emerald-500' : 'bg-amber-400 dark:bg-amber-500') : 'bg-zinc-400 dark:bg-zinc-500'}`}></div>
                         <div className={`
                           relative w-24 h-24 rounded-full flex items-center justify-center
-                          bg-gradient-to-b from-white/10 to-white/5 border border-white/10 backdrop-blur-md
-                          shadow-[0_8px_32px_rgba(0,0,0,0.5)]
+                          bg-white/80 dark:bg-white/5 border border-white/50 dark:border-white/10 backdrop-blur-md
+                          shadow-xl dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]
                         `}>
-                          {todayRecord ? (todayRecord.raw_check_out ? <CheckCircle className="w-10 h-10 text-emerald-400" /> : <Clock className="w-10 h-10 text-amber-400 animate-pulse" />) : <Coffee className="w-10 h-10 text-zinc-500" />}
+                          {todayRecord ? (todayRecord.raw_check_out ? <CheckCircle className="w-10 h-10 text-emerald-600 dark:text-emerald-400" /> : <Clock className="w-10 h-10 text-amber-500 dark:text-amber-400 animate-pulse" />) : <Coffee className="w-10 h-10 text-zinc-400 dark:text-zinc-500" />}
                         </div>
                      </div>
                      
                      <div>
                        <div className="flex items-center gap-2 mb-2">
-                         <Sparkles className="w-4 h-4 text-amber-300" />
-                         <span className="text-xs font-bold text-amber-300 uppercase tracking-widest">
+                         <Sparkles className="w-4 h-4 text-amber-500 dark:text-amber-300" />
+                         <span className="text-xs font-bold text-amber-600 dark:text-amber-300 uppercase tracking-widest">
                            {todayRecord ? (todayRecord.raw_check_out ? 'Shift Complete' : 'Active Shift') : 'Ready to Start'}
                          </span>
                        </div>
-                       <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tighter mb-1">
+                       <h2 className="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-white tracking-tighter mb-1">
                          {new Date().toLocaleDateString('en-IN', { weekday: 'long' })}
                        </h2>
-                       <p className="text-zinc-400 font-medium">
+                       <p className="text-zinc-500 dark:text-zinc-400 font-medium">
                          {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                        </p>
                      </div>
@@ -278,13 +310,13 @@ export default function TeacherDashboard() {
 
                   {/* Timing Details */}
                   {todayRecord ? (
-                    <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
+                    <div className="flex items-center gap-4 bg-white/40 dark:bg-white/5 p-2 rounded-2xl border border-white/50 dark:border-white/5 backdrop-blur-sm shadow-sm dark:shadow-none">
                       <TimeBox label="Check In" time={formatTimeOnly(todayRecord.check_in_ist)} active={true} />
-                      <div className="text-zinc-600"><ArrowRight className="w-5 h-5" /></div>
+                      <div className="text-zinc-400 dark:text-zinc-600"><ArrowRight className="w-5 h-5" /></div>
                       <TimeBox label="Check Out" time={todayRecord.check_out_ist ? formatTimeOnly(todayRecord.check_out_ist) : '--:--'} active={!!todayRecord.check_out_ist} />
                     </div>
                   ) : (
-                    <div className="px-8 py-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-400 text-sm font-medium">
+                    <div className="px-8 py-4 rounded-2xl bg-white/50 dark:bg-white/5 border border-zinc-200 dark:border-white/5 text-zinc-500 dark:text-zinc-400 text-sm font-medium">
                       Scan QR to begin your day.
                     </div>
                   )}
@@ -293,12 +325,12 @@ export default function TeacherDashboard() {
             </div>
           )}
 
-          {/* 2. HISTORY LOGS */}
+          {/* 2. HISTORY LOGS (Light Mode Friendly Table) */}
           {activeTab === 'logs' && (
             <div className="flex flex-col h-full animate-fade-in">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="text-[10px] font-bold uppercase text-zinc-500 tracking-widest bg-white/5 border-b border-white/5">
+                  <thead className="text-[10px] font-bold uppercase text-zinc-400 dark:text-zinc-500 tracking-widest bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/5">
                     <tr>
                       <th className="px-8 py-4">Date</th>
                       <th className="px-8 py-4">Status</th>
@@ -306,16 +338,16 @@ export default function TeacherDashboard() {
                       <th className="px-8 py-4">Out Time</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-zinc-100 dark:divide-white/5">
                     {getPaginatedData(history).map((record) => (
-                      <tr key={record.id} className="group hover:bg-white/5 transition-colors">
-                        <td className="px-8 py-4 text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">{formatDisplayDate(record.date)}</td>
+                      <tr key={record.id} className="group hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors">
+                        <td className="px-8 py-4 text-sm font-medium text-zinc-600 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white transition-colors">{formatDisplayDate(record.date)}</td>
                         <td className="px-8 py-4"><StatusBadge status={record.status} /></td>
-                        <td className="px-8 py-4 text-sm font-mono text-zinc-400">{record.check_in_ist ? <span className="text-emerald-400">{formatTimeOnly(record.check_in_ist)}</span> : '-'}</td>
-                        <td className="px-8 py-4 text-sm font-mono text-zinc-400">{record.check_out_ist ? <span className="text-amber-400">{formatTimeOnly(record.check_out_ist)}</span> : '-'}</td>
+                        <td className="px-8 py-4 text-sm font-mono text-zinc-500 dark:text-zinc-400">{record.check_in_ist ? <span className="text-emerald-600 dark:text-emerald-400">{formatTimeOnly(record.check_in_ist)}</span> : '-'}</td>
+                        <td className="px-8 py-4 text-sm font-mono text-zinc-500 dark:text-zinc-400">{record.check_out_ist ? <span className="text-amber-600 dark:text-amber-400">{formatTimeOnly(record.check_out_ist)}</span> : '-'}</td>
                       </tr>
                     ))}
-                    {history.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-zinc-500">No logs found.</td></tr>}
+                    {history.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-zinc-400 dark:text-zinc-500">No logs found.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -328,16 +360,16 @@ export default function TeacherDashboard() {
             <div className="flex flex-col h-full animate-fade-in">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="text-[10px] font-bold uppercase text-red-400/70 tracking-widest bg-red-500/5 border-b border-red-500/10">
+                  <thead className="text-[10px] font-bold uppercase text-red-500/70 dark:text-red-400/70 tracking-widest bg-red-50 dark:bg-red-500/5 border-b border-red-100 dark:border-red-500/10">
                     <tr>
                       <th className="px-8 py-4">Date Missed</th>
                       <th className="px-8 py-4">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-zinc-100 dark:divide-white/5">
                     {getPaginatedData(history.filter(r => r.status === 'absent')).map((record) => (
-                      <tr key={record.id} className="hover:bg-red-500/5 transition-colors">
-                        <td className="px-8 py-4 text-sm font-medium text-zinc-300">{formatDisplayDate(record.date)}</td>
+                      <tr key={record.id} className="hover:bg-red-50 dark:hover:bg-red-500/5 transition-colors">
+                        <td className="px-8 py-4 text-sm font-medium text-zinc-600 dark:text-zinc-300">{formatDisplayDate(record.date)}</td>
                         <td className="px-8 py-4"><StatusBadge status="absent" /></td>
                       </tr>
                     ))}
@@ -360,14 +392,14 @@ export default function TeacherDashboard() {
 }
 
 /* =========================
-   PREMIUM SUB-COMPONENTS
+   ADAPTIVE SUB-COMPONENTS
 ========================= */
 
 function TimeBox({ label, time, active }: any) {
   return (
-    <div className={`px-6 py-4 rounded-xl text-center min-w-[120px] transition-colors ${active ? 'bg-zinc-900 border border-white/10' : 'opacity-50'}`}>
-      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">{label}</p>
-      <p className={`text-xl font-bold font-mono ${active ? 'text-white' : 'text-zinc-600'}`}>{time}</p>
+    <div className={`px-6 py-4 rounded-xl text-center min-w-[120px] transition-colors ${active ? 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 shadow-sm' : 'opacity-50'}`}>
+      <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-1">{label}</p>
+      <p className={`text-xl font-bold font-mono ${active ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-600'}`}>{time}</p>
     </div>
   );
 }
@@ -379,8 +411,8 @@ function TabButton({ active, onClick, label }: any) {
       className={`
         px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300
         ${active 
-          ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]' 
-          : 'text-zinc-500 hover:text-white hover:bg-white/5'}
+          ? 'bg-zinc-900 dark:bg-white text-white dark:text-black shadow-lg shadow-zinc-200 dark:shadow-[0_0_20px_rgba(255,255,255,0.3)]' 
+          : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5'}
       `}
     >
       {label}
@@ -390,17 +422,17 @@ function TabButton({ active, onClick, label }: any) {
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'present') {
-    return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>Present</span>;
+    return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></div>Present</span>;
   }
-  return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-rose-500/10 text-rose-400 border border-rose-500/20"><div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>Absent</span>;
+  return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20"><div className="w-1.5 h-1.5 rounded-full bg-rose-500 dark:bg-rose-400"></div>Absent</span>;
 }
 
 function PaginationFooter({ currentPage, totalPages, onPageChange }: any) {
   return (
-    <div className="p-4 border-t border-white/5 flex justify-end items-center gap-2">
-      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
+    <div className="p-4 border-t border-zinc-100 dark:border-white/5 flex justify-end items-center gap-2">
+      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-30"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>
       <span className="text-xs font-mono text-zinc-500 px-2">{currentPage} / {totalPages || 1}</span>
-      <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>
+      <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 disabled:opacity-30"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>
     </div>
   );
 }
