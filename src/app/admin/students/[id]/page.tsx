@@ -183,12 +183,6 @@ export default function StudentDetailsPage() {
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           
           <div className="flex items-center gap-6 md:gap-8">
-            <button 
-              onClick={() => router.back()} 
-              className="group p-3 bg-black/20 hover:bg-white/10 rounded-2xl border border-white/5 transition-all active:scale-95"
-            >
-              <ArrowLeft className="w-5 h-5 text-zinc-400 group-hover:text-white" />
-            </button>
             
             <div className="relative">
               <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl">
@@ -292,7 +286,7 @@ export default function StudentDetailsPage() {
             action={
               <button 
                 onClick={() => { setEditingGuardian(null); setShowGuardianModal(true); }} 
-                className="text-[10px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-lg border border-indigo-500/20 font-bold tracking-wide transition-all"
+                className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-2 rounded-lg border border-indigo-500/20 font-bold tracking-wide transition-all"
               >
                 + ADD
               </button>
