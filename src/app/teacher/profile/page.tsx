@@ -6,8 +6,8 @@ import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { 
   User, Phone, Calendar, MapPin, Briefcase, 
-  BookOpen, Save, Edit3, Loader2, Users, ShieldCheck, Mail,
-  ArrowUpRight, Clock
+  BookOpen, Clock, Save, Edit3, Loader2, Users, ShieldCheck, Mail,
+  ArrowUpRight
 } from 'lucide-react';
 
 /* =========================
@@ -118,7 +118,7 @@ export default function TeacherProfile() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center">
       <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mb-4" />
       <p className="text-zinc-500 text-xs font-mono uppercase tracking-widest">Loading Profile...</p>
     </div>
@@ -127,15 +127,8 @@ export default function TeacherProfile() {
   if (!teacher) return null;
 
   return (
-    <div className="min-h-screen bg-black text-zinc-200 overflow-x-hidden selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 overflow-x-hidden selection:bg-emerald-500/30">
       
-      {/* --- TEACHER LOGIN BACKGROUND (Applied Here) --- */}
-      <div className="fixed inset-0 pointer-events-none -z-50">
-         <div className={`absolute top-[-10%] left-[-20%] w-[100%] h-[60%] rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 opacity-20 blur-[100px] animate-pulse-slow`}></div>
-         <div className="absolute bottom-[-10%] right-[-20%] w-[100%] h-[60%] rounded-full bg-blue-600 opacity-20 blur-[100px] animate-pulse-slow delay-1000"></div>
-         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
-      </div>
-
       <div className="max-w-7xl mx-auto p-4 md:p-8 lg:p-12">
         
         {/* --- HEADER --- */}
@@ -152,7 +145,6 @@ export default function TeacherProfile() {
             <p className="text-zinc-500 text-sm mt-1">Personal information and employment records.</p>
           </div>
           
-          {/* EDIT BUTTON (With Glow Effect Restored) */}
           <button
             onClick={() => editMode ? saveChanges() : setEditMode(true)}
             disabled={saving}
@@ -168,54 +160,58 @@ export default function TeacherProfile() {
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
               {editMode ? 'Save Changes' : 'Edit Details'}
             </div>
-            {/* The Glass Glow Effect */}
-            {!editMode && <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />}
+            {/* Glossy Glow Effect (PC Only) */}
+            {!editMode && <div className="hidden md:block absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />}
           </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* --- LEFT: IDENTITY CARD (PREMIUM BACKGROUND APPLIED) --- */}
+          {/* --- LEFT: IDENTITY CARD (SPECIAL BACKGROUND) --- */}
           <div className="lg:col-span-4 sticky top-8 space-y-6">
             
+            {/* CARD CONTAINER */}
             <div className="relative overflow-hidden rounded-[32px] border border-white/10 shadow-2xl">
               
-              {/* Card Background Gradient */}
-              <div className="absolute inset-0 bg-zinc-900/80 backdrop-blur-xl z-0" />
-              <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.1),transparent_50%)] pointer-events-none z-0" />
+              {/* --- BACKGROUND FROM TEACHER LOGIN PAGE (Confined to Card) --- */}
+              <div className="absolute inset-0 bg-zinc-900 z-0" />
+              <div className="absolute top-[-20%] left-[-20%] w-[120%] h-[120%] rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 opacity-20 blur-[80px] animate-pulse-slow z-0 pointer-events-none" />
+              <div className="absolute bottom-[-20%] right-[-20%] w-[120%] h-[120%] rounded-full bg-blue-600 opacity-20 blur-[80px] animate-pulse-slow delay-1000 z-0 pointer-events-none" />
+              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay z-0 pointer-events-none" />
 
+              {/* CONTENT */}
               <div className="relative z-10 p-8 flex flex-col items-center text-center">
                 
                 {/* Avatar */}
                 <div className="relative mb-6">
-                  <div className="w-28 h-28 rounded-3xl bg-zinc-950 border border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group">
-                    <span className="text-5xl font-bold text-zinc-700 select-none group-hover:text-zinc-500 transition-colors">{teacher.full_name[0]}</span>
+                  <div className="w-28 h-28 rounded-3xl bg-zinc-950/50 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden shadow-2xl group">
+                    <span className="text-5xl font-bold text-white/90 select-none">{teacher.full_name[0]}</span>
                   </div>
                   <div className="absolute -bottom-2 -right-2 bg-zinc-950 p-1.5 rounded-full border border-white/10 shadow-lg">
-                    <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
                   </div>
                 </div>
 
-                {/* Name & Role (Editable) */}
+                {/* Name & Role */}
                 <h2 className="text-xl font-bold text-white mb-1">{teacher.full_name}</h2>
-                <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest mb-6">{teacher.designation}</p>
+                <p className="text-xs text-emerald-200 font-bold uppercase tracking-widest mb-6">{teacher.designation}</p>
 
-                {/* Stats Grid (Editable) */}
+                {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-3 w-full mb-6">
-                  <div className="bg-zinc-950/50 rounded-2xl p-3 border border-white/5">
-                    <BookOpen className="w-4 h-4 text-zinc-500 mx-auto mb-1.5" />
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide">Subject</p>
+                  <div className="bg-zinc-950/40 rounded-2xl p-3 border border-white/10 backdrop-blur-sm">
+                    <BookOpen className="w-4 h-4 text-emerald-200/70 mx-auto mb-1.5" />
+                    <p className="text-[10px] text-emerald-200/70 font-bold uppercase tracking-wide">Subject</p>
                     <p className="text-xs font-medium text-white truncate">{teacher.subject}</p>
                   </div>
-                  <div className="bg-zinc-950/50 rounded-2xl p-3 border border-white/5">
-                    <Calendar className="w-4 h-4 text-zinc-500 mx-auto mb-1.5" />
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide">Joined</p>
+                  <div className="bg-zinc-950/40 rounded-2xl p-3 border border-white/10 backdrop-blur-sm">
+                    <Calendar className="w-4 h-4 text-emerald-200/70 mx-auto mb-1.5" />
+                    <p className="text-[10px] text-emerald-200/70 font-bold uppercase tracking-wide">Joined</p>
                     <p className="text-xs font-medium text-white">{new Date(teacher.join_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}</p>
                   </div>
                 </div>
 
-                {/* Email Footer (Read Only - Non Editable) */}
-                <div className="w-full pt-4 border-t border-white/5 flex items-center justify-center gap-2 text-xs text-zinc-400">
+                {/* Email Footer (Visible, Read-Only) */}
+                <div className="w-full pt-4 border-t border-white/10 flex items-center justify-center gap-2 text-xs text-emerald-100/80">
                   <Mail className="w-3.5 h-3.5" /> 
                   <span className="font-medium tracking-wide">{teacher.email}</span>
                 </div>
@@ -223,20 +219,20 @@ export default function TeacherProfile() {
               </div>
             </div>
 
-            {/* Quick Contact Card */}
-            <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-5">
+            {/* Quick Contact Card (Standard Style) */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-5 hover:bg-zinc-900 transition-colors">
               <EditableItem label="Mobile Number" value={teacher.phone} edit={editMode} onChange={(v) => setTeacher({...teacher, phone: v})} icon={<Phone className="w-3.5 h-3.5" />} />
             </div>
           </div>
 
-          {/* --- RIGHT: DETAILS & HISTORY --- */}
+          {/* --- RIGHT: DETAILS & HISTORY (Interactive Cards) --- */}
           <div className="lg:col-span-8 space-y-6">
             
             {/* 1. INFO GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Personal */}
-              <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
+              <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 transition-all duration-300 hover:bg-zinc-900 hover:border-white/10 hover:shadow-2xl active:scale-[0.98]">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400"><User className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Personal</h3>
@@ -244,7 +240,6 @@ export default function TeacherProfile() {
                 <div className="space-y-4">
                   <EditableItem label="Gender" value={teacher.gender} edit={editMode} onChange={(v) => setTeacher({...teacher, gender: v})} icon={<Users className="w-3.5 h-3.5" />} />
                   <EditableItem label="Date of Birth" type="date" value={teacher.dob} edit={editMode} onChange={(v) => setTeacher({...teacher, dob: v})} icon={<Calendar className="w-3.5 h-3.5" />} />
-                  {/* Unlocked Editables */}
                   <EditableItem label="Current Role" value={teacher.designation} edit={editMode} onChange={(v) => setTeacher({...teacher, designation: v})} icon={<Briefcase className="w-3.5 h-3.5" />} />
                   <EditableItem label="Subject" value={teacher.subject} edit={editMode} onChange={(v) => setTeacher({...teacher, subject: v})} icon={<BookOpen className="w-3.5 h-3.5" />} />
                   <EditableItem label="Join Date" type="date" value={teacher.join_date} edit={editMode} onChange={(v) => setTeacher({...teacher, join_date: v})} icon={<Calendar className="w-3.5 h-3.5" />} />
@@ -252,7 +247,7 @@ export default function TeacherProfile() {
               </div>
 
               {/* Family */}
-              <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
+              <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 transition-all duration-300 hover:bg-zinc-900 hover:border-white/10 hover:shadow-2xl active:scale-[0.98]">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-lg bg-pink-500/10 text-pink-400"><Users className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Family</h3>
@@ -266,7 +261,7 @@ export default function TeacherProfile() {
             </div>
 
             {/* 2. ADDRESS */}
-            <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
+            <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 transition-all duration-300 hover:bg-zinc-900 hover:border-white/10 hover:shadow-2xl active:scale-[0.98]">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400"><MapPin className="w-4 h-4" /></div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest">Addresses</h3>
@@ -277,8 +272,8 @@ export default function TeacherProfile() {
               </div>
             </div>
 
-            {/* 3. ATTENDANCE HISTORY (Perfectly Aligned) */}
-            <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
+            {/* 3. ATTENDANCE HISTORY */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 transition-all duration-300 hover:bg-zinc-900 hover:border-white/10 hover:shadow-2xl">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400"><Clock className="w-4 h-4" /></div>
@@ -309,16 +304,14 @@ export default function TeacherProfile() {
                         </div>
                       </div>
 
-                      {/* Right: Times (Pixel Perfect Alignment) */}
+                      {/* Right: Times */}
                       <div className="text-right space-y-1.5 min-w-[120px]">
-                        {/* IN Time */}
                         <div className="grid grid-cols-[25px_1fr] gap-3 items-center">
                           <span className="text-[10px] font-bold text-zinc-500 uppercase text-left">IN</span>
                           <span className="text-xs font-mono text-emerald-400 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 text-center w-full block">
                             {formatTime(a.check_in)}
                           </span>
                         </div>
-                        {/* OUT Time */}
                         <div className="grid grid-cols-[25px_1fr] gap-3 items-center">
                           <span className="text-[10px] font-bold text-zinc-500 uppercase text-left">OUT</span>
                           <span className="text-xs font-mono text-amber-400 bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10 text-center w-full block">
