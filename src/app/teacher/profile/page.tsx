@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
   User, Phone, Calendar, MapPin, Briefcase, 
   BookOpen, Clock, Save, Edit3, Loader2, Users, ShieldCheck, Mail,
-  Fingerprint, ArrowUpRight
+  ArrowUpRight
 } from 'lucide-react';
 
 /* =========================
@@ -85,6 +85,9 @@ export default function TeacherProfile() {
     const { error } = await supabase.from('teachers').update({
         full_name: teacher.full_name,
         phone: teacher.phone,
+        designation: teacher.designation, // Unlocked
+        subject: teacher.subject,         // Unlocked
+        join_date: teacher.join_date,     // Unlocked
         gender: teacher.gender,
         dob: teacher.dob,
         father_name: teacher.father_name,
@@ -126,9 +129,7 @@ export default function TeacherProfile() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 overflow-x-hidden selection:bg-indigo-500/30">
       
-      {/* --- CLEAN PREMIUM BACKGROUND --- */}
-      <div className="fixed inset-0 bg-zinc-950 pointer-events-none -z-50" />
-      <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-to-b from-indigo-900/10 via-zinc-950/50 to-zinc-950 pointer-events-none -z-40" />
+      {/* NO GLOBAL BACKGROUND - CLEAN ZINC-950 */}
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 lg:p-12">
         
@@ -164,56 +165,58 @@ export default function TeacherProfile() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* --- LEFT: IDENTITY CARD (Sticky) --- */}
-          <div className="lg:col-span-4 sticky top-8">
-            <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-1 shadow-2xl backdrop-blur-sm">
-              <div className="bg-zinc-950/80 rounded-[20px] p-6 text-center border border-white/5">
+          {/* --- LEFT: IDENTITY CARD (PREMIUM BACKGROUND ONLY HERE) --- */}
+          <div className="lg:col-span-4 sticky top-8 space-y-6">
+            
+            <div className="relative overflow-hidden rounded-[32px] border border-white/10 shadow-2xl">
+              
+              {/* --- PREMIUM CARD BACKGROUND START --- */}
+              <div className="absolute inset-0 bg-zinc-900 z-0" />
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:20px_20px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none z-0" />
+              <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none z-0 animate-pulse-slow" />
+              {/* --- PREMIUM CARD BACKGROUND END --- */}
+
+              <div className="relative z-10 p-8 flex flex-col items-center text-center">
                 
                 {/* Avatar */}
-                <div className="relative mx-auto w-24 h-24 mb-4">
-                  <div className="w-full h-full rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10 flex items-center justify-center text-4xl font-bold text-zinc-700 select-none">
-                    {teacher.full_name[0]}
+                <div className="relative mb-6">
+                  <div className="w-28 h-28 rounded-3xl bg-zinc-950 border border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group">
+                    <span className="text-5xl font-bold text-white/20 select-none group-hover:text-white/40 transition-colors">{teacher.full_name[0]}</span>
                   </div>
-                  <div className="absolute -bottom-2 -right-2 bg-zinc-950 p-1 rounded-full border border-white/5">
+                  <div className="absolute -bottom-2 -right-2 bg-zinc-950 p-1.5 rounded-full border border-white/10 shadow-lg">
                     <ShieldCheck className="w-5 h-5 text-emerald-500" />
                   </div>
                 </div>
 
+                {/* Name & Role (Editable via State) */}
                 <h2 className="text-xl font-bold text-white mb-1">{teacher.full_name}</h2>
-                <p className="text-xs text-indigo-400 font-medium uppercase tracking-wide mb-6">{teacher.designation}</p>
+                <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest mb-6">{teacher.designation}</p>
 
-                {/* Quick Stats Grid */}
-                <div className="grid grid-cols-2 gap-2 mb-6">
-                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3 w-full mb-6">
+                  <div className="bg-zinc-950/50 rounded-2xl p-3 border border-white/5">
                     <BookOpen className="w-4 h-4 text-zinc-500 mx-auto mb-1.5" />
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase">Subject</p>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide">Subject</p>
                     <p className="text-xs font-medium text-white truncate">{teacher.subject}</p>
                   </div>
-                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                  <div className="bg-zinc-950/50 rounded-2xl p-3 border border-white/5">
                     <Calendar className="w-4 h-4 text-zinc-500 mx-auto mb-1.5" />
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase">Joined</p>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide">Joined</p>
                     <p className="text-xs font-medium text-white">{new Date(teacher.join_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}</p>
                   </div>
                 </div>
 
-                {/* Meta Info */}
-                <div className="border-t border-white/5 pt-4 space-y-3 text-left">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 text-zinc-500"><Mail className="w-3.5 h-3.5" /> Email</div>
-                    <div className="text-zinc-300 truncate max-w-[140px]">{teacher.email}</div>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 text-zinc-500"><Fingerprint className="w-3.5 h-3.5" /> ID</div>
-                    <div className="font-mono text-zinc-500">#{teacher.id.slice(0, 8)}</div>
-                  </div>
+                {/* Email Footer (ID Removed) */}
+                <div className="w-full pt-4 border-t border-white/5 flex items-center justify-center gap-2 text-xs text-zinc-400">
+                  <Mail className="w-3.5 h-3.5" /> {teacher.email}
                 </div>
 
               </div>
             </div>
 
-            {/* Phone Card */}
-            <div className="mt-4 bg-zinc-900/50 border border-white/5 rounded-2xl p-5">
-              <EditableInput label="Mobile Number" value={teacher.phone} edit={editMode} onChange={(v) => setTeacher({...teacher, phone: v})} icon={<Phone className="w-3.5 h-3.5" />} />
+            {/* Quick Contact Card */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-5">
+              <EditableItem label="Mobile Number" value={teacher.phone} edit={editMode} onChange={(v) => setTeacher({...teacher, phone: v})} icon={<Phone className="w-3.5 h-3.5" />} />
             </div>
           </div>
 
@@ -230,9 +233,14 @@ export default function TeacherProfile() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Personal</h3>
                 </div>
                 <div className="space-y-4">
-                  <EditableInput label="Gender" value={teacher.gender} edit={editMode} onChange={(v) => setTeacher({...teacher, gender: v})} icon={<Users className="w-3.5 h-3.5" />} />
-                  <EditableInput label="Date of Birth" type="date" value={teacher.dob} edit={editMode} onChange={(v) => setTeacher({...teacher, dob: v})} icon={<Calendar className="w-3.5 h-3.5" />} />
-                  <EditableInput label="Designation" value={teacher.designation} locked edit={false} onChange={()=>{}} icon={<Briefcase className="w-3.5 h-3.5" />} />
+                  <EditableItem label="Gender" value={teacher.gender} edit={editMode} onChange={(v) => setTeacher({...teacher, gender: v})} icon={<Users className="w-3.5 h-3.5" />} />
+                  <EditableItem label="Date of Birth" type="date" value={teacher.dob} edit={editMode} onChange={(v) => setTeacher({...teacher, dob: v})} icon={<Calendar className="w-3.5 h-3.5" />} />
+                  {/* Unlocked Designation */}
+                  <EditableItem label="Current Role" value={teacher.designation} edit={editMode} onChange={(v) => setTeacher({...teacher, designation: v})} icon={<Briefcase className="w-3.5 h-3.5" />} />
+                  {/* Unlocked Subject */}
+                  <EditableItem label="Subject" value={teacher.subject} edit={editMode} onChange={(v) => setTeacher({...teacher, subject: v})} icon={<BookOpen className="w-3.5 h-3.5" />} />
+                  {/* Unlocked Join Date */}
+                  <EditableItem label="Join Date" type="date" value={teacher.join_date} edit={editMode} onChange={(v) => setTeacher({...teacher, join_date: v})} icon={<Calendar className="w-3.5 h-3.5" />} />
                 </div>
               </div>
 
@@ -243,9 +251,9 @@ export default function TeacherProfile() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Family</h3>
                 </div>
                 <div className="space-y-4">
-                  <EditableInput label="Father's Name" value={teacher.father_name} edit={editMode} onChange={(v) => setTeacher({...teacher, father_name: v})} icon={<User className="w-3.5 h-3.5" />} />
-                  <EditableInput label="Mother's Name" value={teacher.mother_name} edit={editMode} onChange={(v) => setTeacher({...teacher, mother_name: v})} icon={<User className="w-3.5 h-3.5" />} />
-                  <EditableInput label="Spouse's Name" value={teacher.husband_name} edit={editMode} onChange={(v) => setTeacher({...teacher, husband_name: v})} icon={<User className="w-3.5 h-3.5" />} />
+                  <EditableItem label="Father's Name" value={teacher.father_name} edit={editMode} onChange={(v) => setTeacher({...teacher, father_name: v})} icon={<User className="w-3.5 h-3.5" />} />
+                  <EditableItem label="Mother's Name" value={teacher.mother_name} edit={editMode} onChange={(v) => setTeacher({...teacher, mother_name: v})} icon={<User className="w-3.5 h-3.5" />} />
+                  <EditableItem label="Spouse's Name" value={teacher.husband_name} edit={editMode} onChange={(v) => setTeacher({...teacher, husband_name: v})} icon={<User className="w-3.5 h-3.5" />} />
                 </div>
               </div>
             </div>
@@ -262,12 +270,15 @@ export default function TeacherProfile() {
               </div>
             </div>
 
-            {/* 3. ATTENDANCE HISTORY (Redesigned) */}
+            {/* 3. ATTENDANCE HISTORY (Perfectly Aligned) */}
             <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400"><Clock className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Recent Activity</h3>
+                </div>
+                <div className="text-[10px] font-mono text-zinc-500 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                  Last 30 Days
                 </div>
               </div>
 
@@ -291,19 +302,19 @@ export default function TeacherProfile() {
                         </div>
                       </div>
 
-                      {/* Right: Times (Fixed Alignment) */}
-                      <div className="text-right space-y-1.5 min-w-[100px]">
-                        {/* IN Time - Fixed Width Label */}
-                        <div className="grid grid-cols-[24px_1fr] gap-2 items-center">
+                      {/* Right: Times (Pixel Perfect Alignment) */}
+                      <div className="text-right space-y-1.5 min-w-[120px]">
+                        {/* IN Time */}
+                        <div className="grid grid-cols-[25px_1fr] gap-3 items-center">
                           <span className="text-[10px] font-bold text-zinc-500 uppercase text-left">IN</span>
-                          <span className="text-xs font-mono text-emerald-400 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 text-center">
+                          <span className="text-xs font-mono text-emerald-400 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 text-center w-full block">
                             {formatTime(a.check_in)}
                           </span>
                         </div>
-                        {/* OUT Time - Fixed Width Label */}
-                        <div className="grid grid-cols-[24px_1fr] gap-2 items-center">
+                        {/* OUT Time */}
+                        <div className="grid grid-cols-[25px_1fr] gap-3 items-center">
                           <span className="text-[10px] font-bold text-zinc-500 uppercase text-left">OUT</span>
-                          <span className="text-xs font-mono text-amber-400 bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10 text-center">
+                          <span className="text-xs font-mono text-amber-400 bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10 text-center w-full block">
                             {formatTime(a.check_out)}
                           </span>
                         </div>
@@ -329,14 +340,14 @@ export default function TeacherProfile() {
    UI HELPERS
 ========================= */
 
-function EditableInput({ label, value, edit, onChange, type = 'text', icon, locked = false }: { label: string; value: string | null; edit: boolean; onChange: (v: string) => void; icon: React.ReactNode; type?: string; locked?: boolean }) {
+function EditableItem({ label, value, edit, onChange, type = 'text', icon }: { label: string; value: string | null; edit: boolean; onChange: (v: string) => void; icon: React.ReactNode; type?: string }) {
   return (
     <div className="group">
       <div className="flex items-center gap-2 mb-2 text-zinc-500">
         {icon}
         <span className="text-[10px] font-bold uppercase tracking-widest group-hover:text-zinc-300 transition-colors">{label}</span>
       </div>
-      {edit && !locked ? (
+      {edit ? (
         <input 
           type={type}
           className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all font-medium placeholder:text-zinc-700"
@@ -363,7 +374,7 @@ function EditableTextarea({ label, value, edit, onChange }: { label: string; val
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <div className="text-sm text-zinc-400 leading-relaxed bg-black/20 p-5 rounded-2xl border border-white/5 min-h-[100px]">
+        <div className="text-sm text-zinc-400 leading-relaxed bg-black/40 p-5 rounded-2xl border border-white/5 min-h-[100px]">
           {value || <span className="text-zinc-700 italic">No address provided.</span>}
         </div>
       )}
