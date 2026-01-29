@@ -39,24 +39,17 @@ type Teacher = {
 };
 
 /* =========================
-   HELPER: TIME FORMATTER (FIXED)
+   HELPER: TIME FORMATTER
 ========================= */
 const formatTime = (dateString: string | null) => {
   if (!dateString) return '-';
-  
-  // 1. Handle "27-Jan-2026 06:30:46 PM"
   const parts = dateString.split(' ');
   if (parts.length >= 3) {
-     const timePart = parts[1]; // "06:30:46"
-     const ampm = parts[2];     // "PM"
-     return `${timePart.slice(0, 5)} ${ampm}`;
+     return `${parts[1].slice(0, 5)} ${parts[2]}`;
   }
-
-  // 2. Handle ISO strings
   if (dateString.includes('T')) {
     return new Date(dateString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   }
-
   return dateString;
 };
 
@@ -85,7 +78,6 @@ export default function TeacherDetailsPage() {
         ]);
 
         if (teachRes.error) { toast.error('Failed to load teacher'); setLoading(false); return; }
-        
         setTeacher(teachRes.data);
         
         const formattedAtt = attRes.data?.map((item: any) => ({
@@ -143,7 +135,6 @@ export default function TeacherDetailsPage() {
       
       {/* --- HERO HEADER --- */}
       <div className="relative bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-[32px] overflow-hidden p-6 md:p-10 shadow-2xl">
-        {/* Glow Effect */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 blur-[100px] rounded-full pointer-events-none" />
         
@@ -196,22 +187,23 @@ export default function TeacherDetailsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
-        {/* --- LEFT COLUMN --- */}
+        {/* --- LEFT COLUMN: DETAILS --- */}
         <div className="xl:col-span-2 space-y-8">
           
-          {/* PERSONAL INFO CARD */}
+          {/* PERSONAL INFORMATION CARD */}
           <Section title="Personal Information" icon={<User className="w-4 h-4" />}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
               
-              {/* Professional */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+              {/* Professional Section */}
+              <div className="space-y-5">
+                <div className="flex items-center gap-2 pb-2 border-b border-white/5 mb-2">
                    <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Professional</span>
                 </div>
                 
                 <EditableItem label="Full Name" value={teacher.full_name} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, full_name: v} : null)} icon={<User className="w-3.5 h-3.5" />} />
                 <EditableItem label="Designation" value={teacher.designation} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, designation: v} : null)} icon={<Briefcase className="w-3.5 h-3.5" />} />
+                
                 <div className="grid grid-cols-2 gap-4">
                    <EditableItem label="Subject" value={teacher.subject} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, subject: v} : null)} />
                    <EditableItem label="Phone" value={teacher.phone} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, phone: v} : null)} />
@@ -219,9 +211,9 @@ export default function TeacherDetailsPage() {
                 <EditableItem label="Join Date" type="date" value={teacher.join_date} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, join_date: v} : null)} icon={<Calendar className="w-3.5 h-3.5" />} />
               </div>
 
-              {/* Personal */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+              {/* Background Section */}
+              <div className="space-y-5">
+                <div className="flex items-center gap-2 pb-2 border-b border-white/5 mb-2">
                    <Users className="w-3.5 h-3.5 text-emerald-400" />
                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Background</span>
                 </div>
@@ -229,6 +221,7 @@ export default function TeacherDetailsPage() {
                 <EditableItem label="Father's Name" value={teacher.father_name} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, father_name: v} : null)} />
                 <EditableItem label="Mother's Name" value={teacher.mother_name} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, mother_name: v} : null)} />
                 <EditableItem label="Husband's Name" value={teacher.husband_name} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, husband_name: v} : null)} />
+                
                 <div className="grid grid-cols-2 gap-4">
                    <EditableItem label="Gender" value={teacher.gender} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, gender: v} : null)} />
                    <EditableItem label="DOB" type="date" value={teacher.dob} edit={editMode} onChange={(v: string) => setTeacher(prev => prev ? {...prev, dob: v} : null)} />
@@ -246,12 +239,12 @@ export default function TeacherDetailsPage() {
           </Section>
         </div>
 
-        {/* --- RIGHT COLUMN --- */}
+        {/* --- RIGHT COLUMN: ATTENDANCE --- */}
         <div className="space-y-8">
           
-          {/* ATTENDANCE CARD */}
+          {/* PREMIUM ATTENDANCE CARD */}
           <Section 
-            title="Attendance History" 
+            title="Attendance Logs" 
             icon={<Clock className="w-4 h-4" />}
             action={<span className="text-[10px] font-bold bg-white/5 px-2 py-1 rounded text-zinc-400">{attendance.length} Records</span>}
           >
@@ -261,24 +254,25 @@ export default function TeacherDetailsPage() {
                 <p className="text-xs">No records found.</p>
               </div>
             ) : (
+              // FIXED ATTENDANCE BOX
               <div className="overflow-hidden rounded-2xl border border-white/5 bg-black/20">
                 <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
                   <table className="w-full text-sm text-left">
                     <thead className="text-[10px] font-bold text-zinc-500 uppercase bg-white/5 border-b border-white/5 sticky top-0 z-10 backdrop-blur-md">
                       <tr>
-                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3 pl-6">Date</th>
                         <th className="px-4 py-3">In</th>
                         <th className="px-4 py-3">Out</th>
-                        <th className="px-4 py-3 text-right">Status</th>
+                        <th className="px-4 py-3 text-right pr-6">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {attendance.map((a, i) => (
                         <tr key={i} className="group hover:bg-white/5 transition-colors">
-                          <td className="px-4 py-3 font-medium text-zinc-300 font-mono text-xs">{a.date}</td>
+                          <td className="px-4 py-3 pl-6 font-medium text-zinc-300 font-mono text-xs">{a.date}</td>
                           <td className="px-4 py-3 text-emerald-400 font-mono text-xs">{formatTime(a.check_in)}</td>
                           <td className="px-4 py-3 text-amber-400 font-mono text-xs">{formatTime(a.check_out)}</td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3 text-right pr-6">
                             <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
                               a.status === 'present' 
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
@@ -303,7 +297,7 @@ export default function TeacherDetailsPage() {
 }
 
 /* =========================
-   UI HELPERS (Strictly Typed)
+   UI HELPERS (FIXED ALIGNMENT)
 ========================= */
 
 interface SectionProps {
@@ -338,23 +332,24 @@ interface EditableItemProps {
   type?: string;
 }
 
+// FIXED: Perfectly aligned boxes for both Edit and View mode
 function EditableItem({ label, value, edit, onChange, icon, type = 'text' }: EditableItemProps) {
   return (
     <div className="group">
-      <div className="flex items-center gap-2 mb-1.5 text-zinc-500 group-hover:text-indigo-400 transition-colors">
+      <div className="flex items-center gap-2 mb-2 text-zinc-500 group-hover:text-indigo-400 transition-colors">
         {icon}
-        <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
       </div>
       {edit ? (
         <input 
           type={type}
-          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none transition-all"
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none transition-all h-[42px]"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <div className="pl-6 text-sm text-white font-medium border-l-2 border-white/10 ml-1.5 py-0.5">
-          {value || <span className="text-zinc-600 italic">N/A</span>}
+        <div className="w-full bg-white/5 border border-white/5 rounded-lg px-3 py-2.5 text-sm text-zinc-200 h-[42px] flex items-center">
+          {value || <span className="text-zinc-600 italic text-xs">N/A</span>}
         </div>
       )}
     </div>
@@ -370,18 +365,18 @@ interface EditableTextareaProps {
 
 function EditableTextarea({ label, value, edit, onChange }: EditableTextareaProps) {
   return (
-    <div className="bg-black/20 p-4 rounded-xl border border-white/5 flex flex-col h-full">
+    <div className="flex flex-col h-full">
       <span className="text-[10px] font-bold uppercase text-zinc-500 mb-2 block">{label}</span>
       {edit ? (
         <textarea 
-          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none transition-all min-h-[80px]"
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-indigo-500 focus:bg-black/60 outline-none transition-all min-h-[100px] resize-none leading-relaxed"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <p className="text-sm text-zinc-300 leading-relaxed">
+        <div className="w-full bg-white/5 border border-white/5 rounded-lg px-4 py-3 text-sm text-zinc-300 leading-relaxed min-h-[100px]">
           {value || <span className="text-zinc-600 italic">No address provided.</span>}
-        </p>
+        </div>
       )}
     </div>
   );
