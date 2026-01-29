@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 /* =========================
-   TYPES
+   TYPES & HELPERS
 ========================= */
 type Attendance = {
   date: string;
@@ -50,7 +50,6 @@ export default function TeacherProfile() {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
 
-  /* --- LOAD DATA --- */
   useEffect(() => {
     async function initProfile() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -77,7 +76,6 @@ export default function TeacherProfile() {
     initProfile();
   }, [router]);
 
-  /* --- SAVE CHANGES --- */
   async function saveChanges() {
     if (!teacher) return;
     setSaving(true);
@@ -99,38 +97,26 @@ export default function TeacherProfile() {
     setSaving(false);
   }
 
-  /* --- FIXED TIME FORMATTER --- */
-  // Handles "27-Jan-2026 06:30:46 PM" -> "06:30 PM"
   const formatTime = (dateString: string | null) => {
     if (!dateString) return '--:--';
-    
-    // 1. Try splitting by space if it matches your DB format
-    // parts = ["27-Jan-2026", "06:30:46", "PM"]
     const parts = dateString.split(' ');
-    
     if (parts.length >= 3) {
-       // Take the time part "06:30:46"
-       const timePart = parts[1]; 
-       const ampm = parts[2];
-       // Return "06:30 PM" (slice seconds off)
-       return `${timePart.slice(0, 5)} ${ampm}`;
+       return `${parts[1].slice(0, 5)} ${parts[2]}`;
     }
-
-    // 2. Fallback for ISO strings
     if (dateString.includes('T')) {
       return new Date(dateString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     }
-
     return dateString;
   };
 
   if (loading) return (
-    <div className="h-[90vh] flex flex-col items-center justify-center bg-zinc-950">
-      <div className="relative">
-        <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-        <div className="absolute inset-0 flex items-center justify-center"><Sparkles className="w-6 h-6 text-indigo-500 animate-pulse" /></div>
-      </div>
-      <p className="mt-4 text-zinc-500 text-xs font-mono uppercase tracking-widest">Authenticating Identity...</p>
+    <div className="h-[90vh] flex flex-col items-center justify-center bg-zinc-950 relative overflow-hidden">
+        {/* --- LOADING BACKGROUND --- */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:30px_30px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
+        <div className="relative z-10 flex flex-col items-center">
+            <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+            <p className="mt-4 text-zinc-500 text-xs font-mono uppercase tracking-widest animate-pulse">Authenticating Identity...</p>
+        </div>
     </div>
   );
 
@@ -139,15 +125,11 @@ export default function TeacherProfile() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 pb-20 selection:bg-indigo-500/30 overflow-hidden relative">
       
-      {/* --- BACKGROUND AMBIENCE (FIXED) --- 
-         Using fixed positioning to ensure it covers the whole screen
-         and doesn't get cut off by content.
-      */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full mix-blend-screen" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-teal-600/10 blur-[120px] rounded-full mix-blend-screen" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 mix-blend-overlay"></div>
-      </div>
+      {/* --- PREMIUM BACKGROUND SYSTEM --- */}
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:30px_30px] md:bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none z-0" />
+      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-500/20 blur-[100px] animate-pulse-slow pointer-events-none z-0" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/10 blur-[100px] animate-pulse-slow delay-1000 pointer-events-none z-0" />
+      <div className="fixed inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay z-0"></div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto p-4 md:p-8 lg:p-12">
         
@@ -162,9 +144,6 @@ export default function TeacherProfile() {
             <p className="text-zinc-500 mt-2 text-sm max-w-md">Manage your personal information, view employment records, and track attendance history.</p>
           </div>
           
-          {/* --- ACTION BUTTON (MOBILE OPTIMIZED) --- 
-             Added 'active:scale-95' and 'active:bg-white/90' for immediate touch feedback.
-          */}
           <button
             onClick={() => editMode ? saveChanges() : setEditMode(true)}
             disabled={saving}
@@ -180,20 +159,18 @@ export default function TeacherProfile() {
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
               {editMode ? 'Save Changes' : 'Edit Information'}
             </div>
-            {/* Glossy Swipe Effect (Visual Impact) */}
             {!editMode && <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full group-active:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />}
           </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* --- LEFT COLUMN: STICKY IDENTITY CARD --- */}
+          {/* --- LEFT COLUMN --- */}
           <div className="lg:col-span-4 space-y-6">
             <div className="sticky top-24">
               
-              {/* THE ID CARD */}
+              {/* ID CARD */}
               <div className="relative overflow-hidden rounded-[32px] bg-white/5 border border-white/10 p-1 shadow-2xl backdrop-blur-md">
-                
                 <div className="relative bg-zinc-950/50 rounded-[28px] p-8 flex flex-col items-center text-center border border-white/5">
                   <div className="relative mb-6">
                     <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-zinc-800 to-zinc-900 border-2 border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group">
@@ -243,13 +220,11 @@ export default function TeacherProfile() {
             </div>
           </div>
 
-          {/* --- RIGHT COLUMN: DETAILS BENTO GRID --- */}
+          {/* --- RIGHT COLUMN --- */}
           <div className="lg:col-span-8 space-y-6">
             
-            {/* 1. PERSONAL & FAMILY (Bento) */}
+            {/* 1. PERSONAL & FAMILY */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Personal */}
               <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-full bg-indigo-500/10 text-indigo-400"><User className="w-4 h-4" /></div>
@@ -262,7 +237,6 @@ export default function TeacherProfile() {
                 </div>
               </div>
 
-              {/* Family */}
               <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-full bg-pink-500/10 text-pink-400"><Users className="w-4 h-4" /></div>
@@ -276,7 +250,7 @@ export default function TeacherProfile() {
               </div>
             </div>
 
-            {/* 2. ADDRESS (Full Width) */}
+            {/* 2. ADDRESS */}
             <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-400"><MapPin className="w-4 h-4" /></div>
@@ -343,7 +317,7 @@ export default function TeacherProfile() {
 }
 
 /* =========================
-   PREMIUM UI HELPERS
+   UI HELPERS
 ========================= */
 
 function EditableInput({ label, value, edit, onChange, type = 'text', icon, locked = false }: { label: string; value: string | null; edit: boolean; onChange: (v: string) => void; icon: React.ReactNode; type?: string; locked?: boolean }) {
