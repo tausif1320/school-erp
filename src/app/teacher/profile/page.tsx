@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
   User, Phone, Calendar, MapPin, Briefcase, 
   BookOpen, Clock, Save, Edit3, Loader2, Users, ShieldCheck, Mail,
-  Sparkles, Fingerprint, ArrowUpRight
+  Fingerprint, ArrowUpRight
 } from 'lucide-react';
 
 /* =========================
@@ -99,13 +99,15 @@ export default function TeacherProfile() {
     setSaving(false);
   }
 
-  /* --- FIXED TIME FORMATTER --- */
+  /* --- TIME FORMATTER --- */
   const formatTime = (dateString: string | null) => {
     if (!dateString) return '--:--';
     const parts = dateString.split(' ');
+    // Handle "27-Jan-2026 06:30:46 PM"
     if (parts.length >= 3) {
        return `${parts[1].slice(0, 5)} ${parts[2]}`;
     }
+    // Handle ISO
     if (dateString.includes('T')) {
       return new Date(dateString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     }
@@ -113,145 +115,134 @@ export default function TeacherProfile() {
   };
 
   if (loading) return (
-    <div className="h-[90vh] flex flex-col items-center justify-center bg-zinc-950 relative overflow-hidden">
-      {/* Loading Background - Consistent with Main */}
-      <div className="fixed inset-0 bg-zinc-950 z-[-50]" />
-      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[100px] animate-pulse-slow z-[-40]" />
-      <div className="relative z-10 flex flex-col items-center">
-          <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-          <p className="mt-4 text-zinc-500 text-xs font-mono uppercase tracking-widest animate-pulse">Authenticating Identity...</p>
-      </div>
+    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center">
+      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
+      <p className="text-zinc-500 text-xs font-mono uppercase tracking-widest">Loading Profile...</p>
     </div>
   );
 
   if (!teacher) return null;
 
   return (
-    <div className="min-h-screen text-zinc-200 pb-20 selection:bg-indigo-500/30 relative">
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 overflow-x-hidden selection:bg-indigo-500/30">
       
-      {/* --- SEAMLESS BACKGROUND SYSTEM (NO GRIDS, JUST GLOW) --- */}
-      {/* 1. Base Layer (Solid Dark) */}
-      <div className="fixed inset-0 bg-zinc-950 z-[-50]" />
-      
-      {/* 2. Color Blobs (Behind Content) */}
-      <div className="fixed top-[-20%] left-[-10%] w-[700px] h-[700px] rounded-full bg-indigo-600/10 blur-[120px] mix-blend-screen z-[-40]" />
-      <div className="fixed bottom-[-20%] right-[-10%] w-[700px] h-[700px] rounded-full bg-teal-600/10 blur-[120px] mix-blend-screen z-[-40]" />
-      
-      {/* 3. Noise Texture (Subtle Grain) */}
-      <div className="fixed inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay z-[-30] pointer-events-none"></div>
+      {/* --- CLEAN PREMIUM BACKGROUND --- */}
+      <div className="fixed inset-0 bg-zinc-950 pointer-events-none -z-50" />
+      <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-to-b from-indigo-900/10 via-zinc-950/50 to-zinc-950 pointer-events-none -z-40" />
 
-      <div className="relative z-10 max-w-[1400px] mx-auto p-4 md:p-8 lg:p-12">
+      <div className="max-w-7xl mx-auto p-4 md:p-8 lg:p-12">
         
         {/* --- HEADER --- */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse"></span>
-              <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">Verified Faculty</span>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Active Faculty</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">My Profile</h1>
-            <p className="text-zinc-500 mt-2 text-sm max-w-md">Manage your personal information, view employment records, and track attendance history.</p>
+            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Teacher Profile</h1>
+            <p className="text-zinc-500 text-sm mt-1">Personal information and employment records.</p>
           </div>
           
           <button
             onClick={() => editMode ? saveChanges() : setEditMode(true)}
             disabled={saving}
             className={`
-              group relative overflow-hidden rounded-xl px-8 py-3 font-bold text-sm transition-all duration-200
-              active:scale-95 active:shadow-inner touch-manipulation
+              flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200
+              active:scale-95 touch-manipulation
               ${editMode 
                 ? 'bg-white text-black hover:bg-zinc-200' 
-                : 'bg-zinc-900/80 border border-white/10 hover:border-white/30 text-white active:bg-zinc-800'}
+                : 'bg-zinc-900 border border-white/10 text-white hover:bg-zinc-800'}
             `}
           >
-            <div className="relative z-10 flex items-center gap-2">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-              {editMode ? 'Save Changes' : 'Edit Information'}
-            </div>
-            {!editMode && <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full group-active:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+            {editMode ? 'Save Changes' : 'Edit Details'}
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* --- LEFT COLUMN: STICKY IDENTITY CARD --- */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="sticky top-24">
-              
-              {/* ID CARD */}
-              <div className="relative overflow-hidden rounded-[32px] bg-white/5 border border-white/10 p-1 shadow-2xl backdrop-blur-md">
-                <div className="relative bg-zinc-950/50 rounded-[28px] p-8 flex flex-col items-center text-center border border-white/5">
-                  <div className="relative mb-6">
-                    <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-zinc-800 to-zinc-900 border-2 border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group">
-                      <span className="text-5xl font-bold text-zinc-600 group-hover:text-zinc-400 transition-colors select-none">{teacher.full_name[0]}</span>
-                    </div>
-                    <div className="absolute -bottom-3 -right-3 bg-zinc-950 rounded-xl px-3 py-1 border border-white/10 flex items-center gap-1.5 shadow-lg">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-[10px] font-bold text-white uppercase">{teacher.status}</span>
-                    </div>
+          {/* --- LEFT: IDENTITY CARD (Sticky) --- */}
+          <div className="lg:col-span-4 sticky top-8">
+            <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-1 shadow-2xl backdrop-blur-sm">
+              <div className="bg-zinc-950/80 rounded-[20px] p-6 text-center border border-white/5">
+                
+                {/* Avatar */}
+                <div className="relative mx-auto w-24 h-24 mb-4">
+                  <div className="w-full h-full rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10 flex items-center justify-center text-4xl font-bold text-zinc-700 select-none">
+                    {teacher.full_name[0]}
                   </div>
-
-                  <h2 className="text-2xl font-bold text-white tracking-tight mb-1">{teacher.full_name}</h2>
-                  <p className="text-sm text-indigo-400 font-medium mb-6">{teacher.designation}</p>
-
-                  <div className="grid grid-cols-2 gap-3 w-full">
-                    <div className="bg-white/5 rounded-2xl p-3 border border-white/5 hover:bg-white/10 transition-colors">
-                      <BookOpen className="w-4 h-4 text-zinc-500 mb-2 mx-auto" />
-                      <p className="text-[10px] text-zinc-500 uppercase font-bold">Subject</p>
-                      <p className="text-sm font-medium text-white">{teacher.subject}</p>
-                    </div>
-                    <div className="bg-white/5 rounded-2xl p-3 border border-white/5 hover:bg-white/10 transition-colors">
-                      <Calendar className="w-4 h-4 text-zinc-500 mb-2 mx-auto" />
-                      <p className="text-[10px] text-zinc-500 uppercase font-bold">Joined</p>
-                      <p className="text-sm font-medium text-white">{new Date(teacher.join_date).toLocaleDateString(undefined, { month: 'short', year: 'numeric'})}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 w-full pt-6 border-t border-white/5">
-                    <div className="flex items-center justify-between text-xs text-zinc-400 mb-2">
-                      <span className="flex items-center gap-2"><Mail className="w-3.5 h-3.5" /> Email</span>
-                      <span className="text-white truncate max-w-[150px]">{teacher.email}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-zinc-400">
-                      <span className="flex items-center gap-2"><Fingerprint className="w-3.5 h-3.5" /> ID</span>
-                      <span className="font-mono text-zinc-500">#{teacher.id.slice(0, 8)}</span>
-                    </div>
+                  <div className="absolute -bottom-2 -right-2 bg-zinc-950 p-1 rounded-full border border-white/5">
+                    <ShieldCheck className="w-5 h-5 text-emerald-500" />
                   </div>
                 </div>
-              </div>
 
-              {/* Quick Contact Card */}
-              <div className="mt-6 bg-zinc-900/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md shadow-lg">
-                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Contact Info</h3>
-                <EditableInput label="Phone Number" value={teacher.phone} edit={editMode} onChange={(v) => setTeacher({...teacher, phone: v})} icon={<Phone className="w-3.5 h-3.5" />} />
-              </div>
+                <h2 className="text-xl font-bold text-white mb-1">{teacher.full_name}</h2>
+                <p className="text-xs text-indigo-400 font-medium uppercase tracking-wide mb-6">{teacher.designation}</p>
 
+                {/* Quick Stats Grid */}
+                <div className="grid grid-cols-2 gap-2 mb-6">
+                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <BookOpen className="w-4 h-4 text-zinc-500 mx-auto mb-1.5" />
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase">Subject</p>
+                    <p className="text-xs font-medium text-white truncate">{teacher.subject}</p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <Calendar className="w-4 h-4 text-zinc-500 mx-auto mb-1.5" />
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase">Joined</p>
+                    <p className="text-xs font-medium text-white">{new Date(teacher.join_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}</p>
+                  </div>
+                </div>
+
+                {/* Meta Info */}
+                <div className="border-t border-white/5 pt-4 space-y-3 text-left">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-zinc-500"><Mail className="w-3.5 h-3.5" /> Email</div>
+                    <div className="text-zinc-300 truncate max-w-[140px]">{teacher.email}</div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-zinc-500"><Fingerprint className="w-3.5 h-3.5" /> ID</div>
+                    <div className="font-mono text-zinc-500">#{teacher.id.slice(0, 8)}</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Phone Card */}
+            <div className="mt-4 bg-zinc-900/50 border border-white/5 rounded-2xl p-5">
+              <EditableInput label="Mobile Number" value={teacher.phone} edit={editMode} onChange={(v) => setTeacher({...teacher, phone: v})} icon={<Phone className="w-3.5 h-3.5" />} />
             </div>
           </div>
 
-          {/* --- RIGHT COLUMN: DETAILS BENTO GRID --- */}
+          {/* --- RIGHT: DETAILS & HISTORY --- */}
           <div className="lg:col-span-8 space-y-6">
             
-            {/* 1. PERSONAL & FAMILY */}
+            {/* 1. INFO GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm shadow-lg">
+              
+              {/* Personal */}
+              <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-full bg-indigo-500/10 text-indigo-400"><User className="w-4 h-4" /></div>
+                  <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400"><User className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Personal</h3>
                 </div>
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <EditableInput label="Gender" value={teacher.gender} edit={editMode} onChange={(v) => setTeacher({...teacher, gender: v})} icon={<Users className="w-3.5 h-3.5" />} />
                   <EditableInput label="Date of Birth" type="date" value={teacher.dob} edit={editMode} onChange={(v) => setTeacher({...teacher, dob: v})} icon={<Calendar className="w-3.5 h-3.5" />} />
-                  <EditableInput label="Current Role" value={teacher.designation} locked edit={false} onChange={()=>{}} icon={<Briefcase className="w-3.5 h-3.5" />} />
+                  <EditableInput label="Designation" value={teacher.designation} locked edit={false} onChange={()=>{}} icon={<Briefcase className="w-3.5 h-3.5" />} />
                 </div>
               </div>
 
-              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm shadow-lg">
+              {/* Family */}
+              <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-full bg-pink-500/10 text-pink-400"><Users className="w-4 h-4" /></div>
+                  <div className="p-2 rounded-lg bg-pink-500/10 text-pink-400"><Users className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Family</h3>
                 </div>
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <EditableInput label="Father's Name" value={teacher.father_name} edit={editMode} onChange={(v) => setTeacher({...teacher, father_name: v})} icon={<User className="w-3.5 h-3.5" />} />
                   <EditableInput label="Mother's Name" value={teacher.mother_name} edit={editMode} onChange={(v) => setTeacher({...teacher, mother_name: v})} icon={<User className="w-3.5 h-3.5" />} />
                   <EditableInput label="Spouse's Name" value={teacher.husband_name} edit={editMode} onChange={(v) => setTeacher({...teacher, husband_name: v})} icon={<User className="w-3.5 h-3.5" />} />
@@ -259,59 +250,68 @@ export default function TeacherProfile() {
               </div>
             </div>
 
-            {/* 2. ADDRESS (Full Width) */}
-            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm shadow-lg">
+            {/* 2. ADDRESS */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-400"><MapPin className="w-4 h-4" /></div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Residency</h3>
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400"><MapPin className="w-4 h-4" /></div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Addresses</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <EditableTextarea label="Current Address" value={teacher.current_address} edit={editMode} onChange={(v) => setTeacher({...teacher, current_address: v})} />
                 <EditableTextarea label="Permanent Address" value={teacher.permanent_address} edit={editMode} onChange={(v) => setTeacher({...teacher, permanent_address: v})} />
               </div>
             </div>
 
-            {/* 3. ATTENDANCE TIMELINE */}
-            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm shadow-lg">
-              <div className="flex items-center justify-between mb-8">
+            {/* 3. ATTENDANCE HISTORY (Redesigned) */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-amber-500/10 text-amber-400"><Clock className="w-4 h-4" /></div>
+                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400"><Clock className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Recent Activity</h3>
-                </div>
-                <div className="text-[10px] font-mono text-zinc-500 bg-white/5 px-3 py-1 rounded-full border border-white/5">
-                  Last 30 Days
                 </div>
               </div>
 
               {attendance.length === 0 ? (
-                <div className="text-center py-12 text-zinc-500">
-                  <Clock className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <div className="text-center py-12 text-zinc-500 border border-dashed border-white/10 rounded-2xl">
                   <p className="text-xs">No records found.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {attendance.slice(0, 5).map((a, i) => (
                     <div key={i} className="group flex items-center justify-between p-4 rounded-2xl bg-black/40 border border-white/5 hover:border-white/10 transition-all">
+                      
+                      {/* Left: Date Block */}
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${a.status === 'present' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg border ${a.status === 'present' ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' : 'bg-red-500/5 border-red-500/20 text-red-500'}`}>
                           {new Date(a.date).getDate()}
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-white">{new Date(a.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long' })}</p>
+                          <p className="text-sm font-bold text-white">{new Date(a.date).toLocaleDateString('en-US', { month: 'short', weekday: 'short' })}</p>
                           <p className={`text-[10px] font-bold uppercase tracking-wider ${a.status === 'present' ? 'text-emerald-500' : 'text-red-500'}`}>{a.status}</p>
                         </div>
                       </div>
-                      <div className="text-right space-y-1">
-                        <div className="flex items-center justify-end gap-2 text-xs text-zinc-400 font-mono">
-                          <span>IN</span> <span className="text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">{formatTime(a.check_in)}</span>
+
+                      {/* Right: Times (Fixed Alignment) */}
+                      <div className="text-right space-y-1.5 min-w-[100px]">
+                        {/* IN Time - Fixed Width Label */}
+                        <div className="grid grid-cols-[24px_1fr] gap-2 items-center">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase text-left">IN</span>
+                          <span className="text-xs font-mono text-emerald-400 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 text-center">
+                            {formatTime(a.check_in)}
+                          </span>
                         </div>
-                        <div className="flex items-center justify-end gap-2 text-xs text-zinc-400 font-mono">
-                          <span>OUT</span> <span className="text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">{formatTime(a.check_out)}</span>
+                        {/* OUT Time - Fixed Width Label */}
+                        <div className="grid grid-cols-[24px_1fr] gap-2 items-center">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase text-left">OUT</span>
+                          <span className="text-xs font-mono text-amber-400 bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10 text-center">
+                            {formatTime(a.check_out)}
+                          </span>
                         </div>
                       </div>
+
                     </div>
                   ))}
-                  <button className="w-full py-3 mt-2 text-xs font-bold text-zinc-500 hover:text-white transition-colors uppercase tracking-widest flex items-center justify-center gap-1 group">
+                  <button className="w-full py-4 mt-2 text-xs font-bold text-zinc-500 hover:text-white transition-colors uppercase tracking-widest flex items-center justify-center gap-1 group">
                     View Full History <ArrowUpRight className="w-3 h-3 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
                   </button>
                 </div>
@@ -326,7 +326,7 @@ export default function TeacherProfile() {
 }
 
 /* =========================
-   PREMIUM UI HELPERS
+   UI HELPERS
 ========================= */
 
 function EditableInput({ label, value, edit, onChange, type = 'text', icon, locked = false }: { label: string; value: string | null; edit: boolean; onChange: (v: string) => void; icon: React.ReactNode; type?: string; locked?: boolean }) {
@@ -339,13 +339,13 @@ function EditableInput({ label, value, edit, onChange, type = 'text', icon, lock
       {edit && !locked ? (
         <input 
           type={type}
-          className="w-full bg-zinc-950/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all font-medium placeholder:text-zinc-700"
+          className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all font-medium placeholder:text-zinc-700"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <div className="text-sm text-zinc-200 font-medium pl-1 py-1 border-b border-white/5 truncate h-[30px] flex items-center">
-          {value || <span className="text-zinc-700 italic">Not set</span>}
+        <div className="text-sm text-zinc-300 font-medium pl-1 py-1 border-b border-white/5 truncate h-[30px] flex items-center">
+          {value || <span className="text-zinc-600 italic">Not set</span>}
         </div>
       )}
     </div>
@@ -358,12 +358,12 @@ function EditableTextarea({ label, value, edit, onChange }: { label: string; val
       <span className="text-[10px] font-bold uppercase text-zinc-500 mb-3 tracking-widest">{label}</span>
       {edit ? (
         <textarea 
-          className="w-full bg-zinc-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all min-h-[100px] resize-none leading-relaxed"
+          className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all min-h-[100px] resize-none leading-relaxed"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <div className="text-sm text-zinc-400 leading-relaxed bg-black/40 p-5 rounded-2xl border border-white/5 min-h-[100px]">
+        <div className="text-sm text-zinc-400 leading-relaxed bg-black/20 p-5 rounded-2xl border border-white/5 min-h-[100px]">
           {value || <span className="text-zinc-700 italic">No address provided.</span>}
         </div>
       )}
