@@ -6,7 +6,7 @@ import {
   Users, UserCircle, Wallet, TrendingUp, Activity, 
   Plus, Calendar as CalendarIcon, CheckCircle2, 
   UserPlus, Clock, Package, AlertTriangle, ChevronLeft, ChevronRight,
-  Shirt, Book, CreditCard, Banknote
+  Shirt, Book, CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -119,7 +119,7 @@ function CalendarWidget() {
 ========================= */
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
-  const [cards, setCards] = useState<any[]>([]); // We will store the final filtered cards here
+  const [cards, setCards] = useState<any[]>([]); 
   const [recentAdmissions, setRecentAdmissions] = useState<any[]>([]);
 
   const getTodayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -129,7 +129,6 @@ export default function AdminDashboard() {
       try {
         const today = getTodayIST();
 
-        // --- 1. PARALLEL DATA FETCHING ---
         const [
           studentsReq, 
           teachersReq, 
@@ -147,14 +146,10 @@ export default function AdminDashboard() {
           supabase.from('uniforms_items').select('id, price')
         ]);
 
-        // --- 2. CALCULATIONS ---
-
-        // A. Basic Counts
         const studentCount = studentsReq.count || 0;
         const teacherCount = teachersReq.count || 0;
         const presentToday = attendanceReq.count || 0;
 
-        // B. Fees Analysis
         let feesCollected = 0;
         let pendingCount = 0;
         let totalTransactions = 0;
@@ -167,12 +162,10 @@ export default function AdminDashboard() {
           });
         }
 
-        // C. Inventory Valuation
         let inventoryVal = 0;
         let lowStock = 0;
         let totalItems = 0;
 
-        // Helper to process stock
         const processStock = (stockData: any[], itemData: any[]) => {
           if (!stockData || !itemData) return;
           stockData.forEach(stock => {
@@ -188,7 +181,6 @@ export default function AdminDashboard() {
         processStock(nbStock.data || [], nbItems.data || []);
         processStock(uniStock.data || [], uniItems.data || []);
 
-        // --- 3. BUILD ALL POTENTIAL CARDS ---
         const allPotentialCards = [
           {
             id: 'students', label: 'Total Students', value: studentCount, subLabel: 'Enrolled',
@@ -228,25 +220,18 @@ export default function AdminDashboard() {
           }
         ];
 
-        // --- 4. SMART FILTERING ---
-        // Filter out cards where value is 0 (except students/teachers which are critical even if 0)
-        // We want exactly 6 cards for the grid
         const criticalIds = ['students', 'teachers', 'attendance'];
         
         const filteredCards = allPotentialCards.filter(card => {
-          if (criticalIds.includes(card.id)) return true; // Always show critical
+          if (criticalIds.includes(card.id)) return true;
           if (typeof card.value === 'string') {
-             // For currency strings, check rawValue
              return (card.rawValue !== undefined && card.rawValue > 0); 
           }
           return card.value > 0;
         });
 
-        // Take top 6
         setCards(filteredCards.slice(0, 6));
 
-
-        // --- 5. RECENT ACTIVITY ---
         const { data: latestStudents } = await supabase
           .from('students')
           .select('id, full_name, class, section, created_at')
@@ -264,10 +249,67 @@ export default function AdminDashboard() {
     fetchRealData();
   }, []);
 
+  // =========================================================
+  //  PREMIUM SKELETON LOADER
+  // =========================================================
   if (loading) return (
-    <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
-      <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-      <p className="text-zinc-500 text-sm font-medium animate-pulse">Loading Live Data...</p>
+    <div className="space-y-8 animate-fade-in-up pb-20 perspective-1000">
+      
+      {/* Header Skeleton */}
+      <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+        <div className="space-y-2">
+           <div className="h-4 w-32 bg-white/5 rounded-full animate-pulse"></div>
+           <div className="h-8 w-64 bg-white/5 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+
+      {/* Metrics Grid Skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-32 rounded-2xl bg-zinc-900/40 border border-white/5 p-5 animate-pulse flex flex-col justify-between">
+             <div className="flex justify-between">
+                <div className="w-10 h-10 rounded-xl bg-white/5"></div>
+                <div className="w-16 h-5 rounded-lg bg-white/5"></div>
+             </div>
+             <div className="space-y-2">
+                <div className="h-8 w-24 bg-white/5 rounded"></div>
+                <div className="h-3 w-20 bg-white/5 rounded"></div>
+             </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main Layout Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+         <div className="lg:col-span-2 space-y-4">
+            <div className="flex justify-between items-center">
+               <div className="h-6 w-40 bg-white/5 rounded animate-pulse" />
+            </div>
+            <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 space-y-4 min-h-[300px]">
+               {Array.from({ length: 4 }).map((_, i) => (
+                 <div key={i} className="flex items-center justify-between p-2">
+                    <div className="flex items-center gap-4">
+                       <div className="w-10 h-10 rounded-xl bg-white/5 animate-pulse" />
+                       <div className="space-y-2">
+                          <div className="h-4 w-32 bg-white/5 rounded animate-pulse" />
+                          <div className="h-3 w-48 bg-white/5 rounded animate-pulse" />
+                       </div>
+                    </div>
+                    <div className="h-4 w-16 bg-white/5 rounded animate-pulse" />
+                 </div>
+               ))}
+            </div>
+         </div>
+         <div className="space-y-6">
+            <div className="h-72 bg-white/5 rounded-3xl animate-pulse" />
+            <div className="space-y-4">
+               <div className="h-6 w-32 bg-white/5 rounded animate-pulse" />
+               <div className="grid grid-cols-2 gap-3">
+                 {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 bg-white/5 rounded-2xl animate-pulse" />)}
+               </div>
+            </div>
+         </div>
+      </div>
     </div>
   );
 

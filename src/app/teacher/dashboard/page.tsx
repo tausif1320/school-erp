@@ -181,10 +181,58 @@ export default function TeacherDashboard() {
   };
   const totalPages = (totalItems: number) => Math.ceil(totalItems / rowsPerPage);
 
+  // =========================================================
+  //  PREMIUM SKELETON LOADER
+  // =========================================================
   if (loading) return (
-    <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
-      <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-      <p className="text-zinc-500 text-sm font-medium animate-pulse tracking-wide">Syncing Workspace...</p>
+    <div className="space-y-6 md:space-y-10 animate-fade-in-up pb-24 md:pb-10 max-w-7xl mx-auto perspective-1000">
+      
+      {/* Header Skeleton */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-2">
+         <div className="space-y-3 w-full">
+            <div className="h-4 w-32 bg-zinc-200 dark:bg-white/5 rounded-full animate-pulse" />
+            <div className="h-10 w-48 md:w-64 bg-zinc-200 dark:bg-white/5 rounded-lg animate-pulse" />
+         </div>
+         <div className="flex gap-3 w-full md:w-auto">
+            <div className="h-10 w-full md:w-32 bg-zinc-200 dark:bg-white/5 rounded-xl animate-pulse" />
+            <div className="h-10 w-full md:w-32 bg-zinc-200 dark:bg-white/5 rounded-xl animate-pulse" />
+         </div>
+      </div>
+
+      {/* Stats Grid Skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+           <div key={i} className="h-32 md:h-36 rounded-3xl bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-white/5 p-6 animate-pulse flex flex-col justify-between">
+              <div className="flex justify-between">
+                 <div className="h-3 w-16 bg-zinc-200 dark:bg-white/5 rounded" />
+                 <div className="h-8 w-8 rounded-2xl bg-zinc-200 dark:bg-white/5" />
+              </div>
+              <div className="h-8 w-20 bg-zinc-200 dark:bg-white/5 rounded" />
+           </div>
+        ))}
+      </div>
+
+      {/* Hero Card Skeleton */}
+      <div className="bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-white/5 rounded-2xl md:rounded-[32px] overflow-hidden min-h-[500px] p-6 md:p-8 relative">
+         <div className="flex gap-4 mb-8 border-b border-zinc-100 dark:border-white/5 pb-4">
+            <div className="h-10 w-24 bg-zinc-200 dark:bg-white/5 rounded-full animate-pulse" />
+            <div className="h-10 w-24 bg-zinc-200 dark:bg-white/5 rounded-full animate-pulse" />
+         </div>
+         <div className="w-full h-[300px] md:h-[400px] rounded-2xl md:rounded-[2rem] bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-white/5 p-6 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 animate-pulse">
+            <div className="flex flex-col md:flex-row items-center gap-8 w-full">
+               <div className="w-24 h-24 rounded-full bg-zinc-200 dark:bg-white/5 shrink-0" />
+               <div className="space-y-4 w-full text-center md:text-left">
+                  <div className="h-4 w-32 bg-zinc-200 dark:bg-white/5 rounded mx-auto md:mx-0" />
+                  <div className="h-10 w-48 md:w-64 bg-zinc-200 dark:bg-white/5 rounded mx-auto md:mx-0" />
+                  <div className="h-4 w-40 bg-zinc-200 dark:bg-white/5 rounded mx-auto md:mx-0" />
+               </div>
+            </div>
+            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+               <div className="h-16 w-full md:w-32 bg-zinc-200 dark:bg-white/5 rounded-xl" />
+               <div className="h-16 w-full md:w-32 bg-zinc-200 dark:bg-white/5 rounded-xl" />
+            </div>
+         </div>
+      </div>
     </div>
   );
 
