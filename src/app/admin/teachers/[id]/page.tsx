@@ -39,15 +39,25 @@ type Teacher = {
 };
 
 /* =========================
-   HELPER: TIME FORMATTER
+   HELPER: TIME FORMATTER (FIXED)
 ========================= */
-const formatTime = (isoString: string | null) => {
-  if (!isoString) return '-';
-  if (isoString.includes('T')) {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+const formatTime = (dateString: string | null) => {
+  if (!dateString) return '-';
+  
+  // 1. Handle "27-Jan-2026 06:30:46 PM"
+  const parts = dateString.split(' ');
+  if (parts.length >= 3) {
+     const timePart = parts[1]; // "06:30:46"
+     const ampm = parts[2];     // "PM"
+     return `${timePart.slice(0, 5)} ${ampm}`;
   }
-  return isoString.split('.')[0].slice(0, 5); 
+
+  // 2. Handle ISO strings
+  if (dateString.includes('T')) {
+    return new Date(dateString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+
+  return dateString;
 };
 
 /* =========================
@@ -133,6 +143,7 @@ export default function TeacherDetailsPage() {
       
       {/* --- HERO HEADER --- */}
       <div className="relative bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-[32px] overflow-hidden p-6 md:p-10 shadow-2xl">
+        {/* Glow Effect */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 blur-[100px] rounded-full pointer-events-none" />
         

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
   User, Phone, Calendar, MapPin, Briefcase, 
   BookOpen, Clock, Save, Edit3, Loader2, Users, ShieldCheck, Mail,
-  Sparkles, Fingerprint, GraduationCap, ArrowUpRight
+  Sparkles, Fingerprint, ArrowUpRight
 } from 'lucide-react';
 
 /* =========================
@@ -99,15 +99,33 @@ export default function TeacherProfile() {
     setSaving(false);
   }
 
-  /* --- FORMATTING HELPERS --- */
-  const formatTime = (iso: string | null) => {
-    if (!iso) return '--:--';
-    if (iso.includes('T')) return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    return iso.slice(0, 5);
+  /* --- FIXED TIME FORMATTER --- */
+  // Handles "27-Jan-2026 06:30:46 PM" -> "06:30 PM"
+  const formatTime = (dateString: string | null) => {
+    if (!dateString) return '--:--';
+    
+    // 1. Try splitting by space if it matches your DB format
+    // parts = ["27-Jan-2026", "06:30:46", "PM"]
+    const parts = dateString.split(' ');
+    
+    if (parts.length >= 3) {
+       // Take the time part "06:30:46"
+       const timePart = parts[1]; 
+       const ampm = parts[2];
+       // Return "06:30 PM" (slice seconds off)
+       return `${timePart.slice(0, 5)} ${ampm}`;
+    }
+
+    // 2. Fallback for ISO strings
+    if (dateString.includes('T')) {
+      return new Date(dateString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+
+    return dateString;
   };
 
   if (loading) return (
-    <div className="h-[90vh] flex flex-col items-center justify-center bg-black">
+    <div className="h-[90vh] flex flex-col items-center justify-center bg-zinc-950">
       <div className="relative">
         <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
         <div className="absolute inset-0 flex items-center justify-center"><Sparkles className="w-6 h-6 text-indigo-500 animate-pulse" /></div>
@@ -119,12 +137,15 @@ export default function TeacherProfile() {
   if (!teacher) return null;
 
   return (
-    <div className="min-h-screen bg-black text-zinc-200 pb-20 selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 pb-20 selection:bg-indigo-500/30 overflow-hidden relative">
       
-      {/* BACKGROUND AMBIENCE */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[150px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-teal-600/10 blur-[150px] rounded-full" />
+      {/* --- BACKGROUND AMBIENCE (FIXED) --- 
+         Using fixed positioning to ensure it covers the whole screen
+         and doesn't get cut off by content.
+      */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full mix-blend-screen" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-teal-600/10 blur-[120px] rounded-full mix-blend-screen" />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 mix-blend-overlay"></div>
       </div>
 
@@ -134,29 +155,33 @@ export default function TeacherProfile() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></span>
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse"></span>
               <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">Verified Faculty</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">My Profile</h1>
             <p className="text-zinc-500 mt-2 text-sm max-w-md">Manage your personal information, view employment records, and track attendance history.</p>
           </div>
           
+          {/* --- ACTION BUTTON (MOBILE OPTIMIZED) --- 
+             Added 'active:scale-95' and 'active:bg-white/90' for immediate touch feedback.
+          */}
           <button
             onClick={() => editMode ? saveChanges() : setEditMode(true)}
             disabled={saving}
             className={`
-              group relative overflow-hidden rounded-xl px-8 py-3 font-bold text-sm transition-all
+              group relative overflow-hidden rounded-xl px-8 py-3 font-bold text-sm transition-all duration-200
+              active:scale-95 active:shadow-inner touch-manipulation
               ${editMode 
-                ? 'bg-white text-black hover:scale-105' 
-                : 'bg-zinc-900 border border-white/10 hover:border-white/30 text-white'}
+                ? 'bg-white text-black hover:bg-zinc-200' 
+                : 'bg-zinc-900 border border-white/10 hover:border-white/30 text-white active:bg-zinc-800'}
             `}
           >
             <div className="relative z-10 flex items-center gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
               {editMode ? 'Save Changes' : 'Edit Information'}
             </div>
-            {/* Hover Glow */}
-            {!editMode && <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />}
+            {/* Glossy Swipe Effect (Visual Impact) */}
+            {!editMode && <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full group-active:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />}
           </button>
         </div>
 
@@ -167,15 +192,14 @@ export default function TeacherProfile() {
             <div className="sticky top-24">
               
               {/* THE ID CARD */}
-              <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-b from-zinc-800/50 to-black border border-white/10 p-1 shadow-2xl backdrop-blur-xl">
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-emerald-500/10 opacity-50" />
+              <div className="relative overflow-hidden rounded-[32px] bg-white/5 border border-white/10 p-1 shadow-2xl backdrop-blur-md">
                 
-                <div className="relative bg-zinc-950/80 rounded-[28px] p-8 flex flex-col items-center text-center border border-white/5">
+                <div className="relative bg-zinc-950/50 rounded-[28px] p-8 flex flex-col items-center text-center border border-white/5">
                   <div className="relative mb-6">
-                    <div className="w-32 h-32 rounded-3xl bg-zinc-800 border-2 border-white/10 flex items-center justify-center overflow-hidden shadow-lg group">
-                      <span className="text-5xl font-bold text-zinc-600 group-hover:text-zinc-400 transition-colors">{teacher.full_name[0]}</span>
+                    <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-zinc-800 to-zinc-900 border-2 border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group">
+                      <span className="text-5xl font-bold text-zinc-600 group-hover:text-zinc-400 transition-colors select-none">{teacher.full_name[0]}</span>
                     </div>
-                    <div className="absolute -bottom-3 -right-3 bg-zinc-900 rounded-xl px-3 py-1 border border-white/10 flex items-center gap-1.5 shadow-lg">
+                    <div className="absolute -bottom-3 -right-3 bg-zinc-950 rounded-xl px-3 py-1 border border-white/10 flex items-center gap-1.5 shadow-lg">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                       <span className="text-[10px] font-bold text-white uppercase">{teacher.status}</span>
                     </div>
@@ -185,12 +209,12 @@ export default function TeacherProfile() {
                   <p className="text-sm text-indigo-400 font-medium mb-6">{teacher.designation}</p>
 
                   <div className="grid grid-cols-2 gap-3 w-full">
-                    <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
+                    <div className="bg-white/5 rounded-2xl p-3 border border-white/5 hover:bg-white/10 transition-colors">
                       <BookOpen className="w-4 h-4 text-zinc-500 mb-2 mx-auto" />
                       <p className="text-[10px] text-zinc-500 uppercase font-bold">Subject</p>
                       <p className="text-sm font-medium text-white">{teacher.subject}</p>
                     </div>
-                    <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
+                    <div className="bg-white/5 rounded-2xl p-3 border border-white/5 hover:bg-white/10 transition-colors">
                       <Calendar className="w-4 h-4 text-zinc-500 mb-2 mx-auto" />
                       <p className="text-[10px] text-zinc-500 uppercase font-bold">Joined</p>
                       <p className="text-sm font-medium text-white">{new Date(teacher.join_date).toLocaleDateString(undefined, { month: 'short', year: 'numeric'})}</p>
@@ -211,7 +235,7 @@ export default function TeacherProfile() {
               </div>
 
               {/* Quick Contact Card */}
-              <div className="mt-6 bg-zinc-900/30 border border-white/5 rounded-3xl p-6 backdrop-blur-md">
+              <div className="mt-6 bg-zinc-900/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md">
                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Contact Info</h3>
                 <EditableInput label="Phone Number" value={teacher.phone} edit={editMode} onChange={(v) => setTeacher({...teacher, phone: v})} icon={<Phone className="w-3.5 h-3.5" />} />
               </div>
@@ -226,7 +250,7 @@ export default function TeacherProfile() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Personal */}
-              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors">
+              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-full bg-indigo-500/10 text-indigo-400"><User className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Personal</h3>
@@ -239,7 +263,7 @@ export default function TeacherProfile() {
               </div>
 
               {/* Family */}
-              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors">
+              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-full bg-pink-500/10 text-pink-400"><Users className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Family</h3>
@@ -253,7 +277,7 @@ export default function TeacherProfile() {
             </div>
 
             {/* 2. ADDRESS (Full Width) */}
-            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px]">
+            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-400"><MapPin className="w-4 h-4" /></div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest">Residency</h3>
@@ -265,7 +289,7 @@ export default function TeacherProfile() {
             </div>
 
             {/* 3. ATTENDANCE TIMELINE */}
-            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px]">
+            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-full bg-amber-500/10 text-amber-400"><Clock className="w-4 h-4" /></div>
@@ -296,10 +320,10 @@ export default function TeacherProfile() {
                       </div>
                       <div className="text-right space-y-1">
                         <div className="flex items-center justify-end gap-2 text-xs text-zinc-400 font-mono">
-                          <span>IN</span> <span className="text-white bg-white/5 px-1.5 py-0.5 rounded">{formatTime(a.check_in)}</span>
+                          <span>IN</span> <span className="text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">{formatTime(a.check_in)}</span>
                         </div>
                         <div className="flex items-center justify-end gap-2 text-xs text-zinc-400 font-mono">
-                          <span>OUT</span> <span className="text-white bg-white/5 px-1.5 py-0.5 rounded">{formatTime(a.check_out)}</span>
+                          <span>OUT</span> <span className="text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">{formatTime(a.check_out)}</span>
                         </div>
                       </div>
                     </div>
