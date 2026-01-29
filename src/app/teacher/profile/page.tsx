@@ -6,8 +6,8 @@ import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { 
   User, Phone, Calendar, MapPin, Briefcase, 
-  BookOpen, Clock, Save, Edit3, Loader2, Users, ShieldCheck, Mail,
-  ArrowUpRight
+  BookOpen, Save, Edit3, Loader2, Users, ShieldCheck, Mail,
+  ArrowUpRight, Clock
 } from 'lucide-react';
 
 /* =========================
@@ -85,9 +85,9 @@ export default function TeacherProfile() {
     const { error } = await supabase.from('teachers').update({
         full_name: teacher.full_name,
         phone: teacher.phone,
-        designation: teacher.designation, // Unlocked
-        subject: teacher.subject,         // Unlocked
-        join_date: teacher.join_date,     // Unlocked
+        designation: teacher.designation, 
+        subject: teacher.subject,         
+        join_date: teacher.join_date,     
         gender: teacher.gender,
         dob: teacher.dob,
         father_name: teacher.father_name,
@@ -118,8 +118,8 @@ export default function TeacherProfile() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center">
-      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center">
+      <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mb-4" />
       <p className="text-zinc-500 text-xs font-mono uppercase tracking-widest">Loading Profile...</p>
     </div>
   );
@@ -127,9 +127,14 @@ export default function TeacherProfile() {
   if (!teacher) return null;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-200 overflow-x-hidden selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-black text-zinc-200 overflow-x-hidden selection:bg-emerald-500/30">
       
-      {/* NO GLOBAL BACKGROUND - CLEAN ZINC-950 */}
+      {/* --- TEACHER LOGIN BACKGROUND (Applied Here) --- */}
+      <div className="fixed inset-0 pointer-events-none -z-50">
+         <div className={`absolute top-[-10%] left-[-20%] w-[100%] h-[60%] rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 opacity-20 blur-[100px] animate-pulse-slow`}></div>
+         <div className="absolute bottom-[-10%] right-[-20%] w-[100%] h-[60%] rounded-full bg-blue-600 opacity-20 blur-[100px] animate-pulse-slow delay-1000"></div>
+         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+      </div>
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 lg:p-12">
         
@@ -147,52 +152,55 @@ export default function TeacherProfile() {
             <p className="text-zinc-500 text-sm mt-1">Personal information and employment records.</p>
           </div>
           
+          {/* EDIT BUTTON (With Glow Effect Restored) */}
           <button
             onClick={() => editMode ? saveChanges() : setEditMode(true)}
             disabled={saving}
             className={`
-              flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200
+              group relative overflow-hidden flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200
               active:scale-95 touch-manipulation
               ${editMode 
                 ? 'bg-white text-black hover:bg-zinc-200' 
                 : 'bg-zinc-900 border border-white/10 text-white hover:bg-zinc-800'}
             `}
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-            {editMode ? 'Save Changes' : 'Edit Details'}
+            <div className="relative z-10 flex items-center gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editMode ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+              {editMode ? 'Save Changes' : 'Edit Details'}
+            </div>
+            {/* The Glass Glow Effect */}
+            {!editMode && <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />}
           </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* --- LEFT: IDENTITY CARD (PREMIUM BACKGROUND ONLY HERE) --- */}
+          {/* --- LEFT: IDENTITY CARD (PREMIUM BACKGROUND APPLIED) --- */}
           <div className="lg:col-span-4 sticky top-8 space-y-6">
             
             <div className="relative overflow-hidden rounded-[32px] border border-white/10 shadow-2xl">
               
-              {/* --- PREMIUM CARD BACKGROUND START --- */}
-              <div className="absolute inset-0 bg-zinc-900 z-0" />
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:20px_20px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none z-0" />
-              <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none z-0 animate-pulse-slow" />
-              {/* --- PREMIUM CARD BACKGROUND END --- */}
+              {/* Card Background Gradient */}
+              <div className="absolute inset-0 bg-zinc-900/80 backdrop-blur-xl z-0" />
+              <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.1),transparent_50%)] pointer-events-none z-0" />
 
               <div className="relative z-10 p-8 flex flex-col items-center text-center">
                 
                 {/* Avatar */}
                 <div className="relative mb-6">
                   <div className="w-28 h-28 rounded-3xl bg-zinc-950 border border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group">
-                    <span className="text-5xl font-bold text-white/20 select-none group-hover:text-white/40 transition-colors">{teacher.full_name[0]}</span>
+                    <span className="text-5xl font-bold text-zinc-700 select-none group-hover:text-zinc-500 transition-colors">{teacher.full_name[0]}</span>
                   </div>
                   <div className="absolute -bottom-2 -right-2 bg-zinc-950 p-1.5 rounded-full border border-white/10 shadow-lg">
                     <ShieldCheck className="w-5 h-5 text-emerald-500" />
                   </div>
                 </div>
 
-                {/* Name & Role (Editable via State) */}
+                {/* Name & Role (Editable) */}
                 <h2 className="text-xl font-bold text-white mb-1">{teacher.full_name}</h2>
-                <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest mb-6">{teacher.designation}</p>
+                <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest mb-6">{teacher.designation}</p>
 
-                {/* Stats Grid */}
+                {/* Stats Grid (Editable) */}
                 <div className="grid grid-cols-2 gap-3 w-full mb-6">
                   <div className="bg-zinc-950/50 rounded-2xl p-3 border border-white/5">
                     <BookOpen className="w-4 h-4 text-zinc-500 mx-auto mb-1.5" />
@@ -206,9 +214,10 @@ export default function TeacherProfile() {
                   </div>
                 </div>
 
-                {/* Email Footer (ID Removed) */}
+                {/* Email Footer (Read Only - Non Editable) */}
                 <div className="w-full pt-4 border-t border-white/5 flex items-center justify-center gap-2 text-xs text-zinc-400">
-                  <Mail className="w-3.5 h-3.5" /> {teacher.email}
+                  <Mail className="w-3.5 h-3.5" /> 
+                  <span className="font-medium tracking-wide">{teacher.email}</span>
                 </div>
 
               </div>
@@ -235,11 +244,9 @@ export default function TeacherProfile() {
                 <div className="space-y-4">
                   <EditableItem label="Gender" value={teacher.gender} edit={editMode} onChange={(v) => setTeacher({...teacher, gender: v})} icon={<Users className="w-3.5 h-3.5" />} />
                   <EditableItem label="Date of Birth" type="date" value={teacher.dob} edit={editMode} onChange={(v) => setTeacher({...teacher, dob: v})} icon={<Calendar className="w-3.5 h-3.5" />} />
-                  {/* Unlocked Designation */}
+                  {/* Unlocked Editables */}
                   <EditableItem label="Current Role" value={teacher.designation} edit={editMode} onChange={(v) => setTeacher({...teacher, designation: v})} icon={<Briefcase className="w-3.5 h-3.5" />} />
-                  {/* Unlocked Subject */}
                   <EditableItem label="Subject" value={teacher.subject} edit={editMode} onChange={(v) => setTeacher({...teacher, subject: v})} icon={<BookOpen className="w-3.5 h-3.5" />} />
-                  {/* Unlocked Join Date */}
                   <EditableItem label="Join Date" type="date" value={teacher.join_date} edit={editMode} onChange={(v) => setTeacher({...teacher, join_date: v})} icon={<Calendar className="w-3.5 h-3.5" />} />
                 </div>
               </div>
@@ -374,7 +381,7 @@ function EditableTextarea({ label, value, edit, onChange }: { label: string; val
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <div className="text-sm text-zinc-400 leading-relaxed bg-black/40 p-5 rounded-2xl border border-white/5 min-h-[100px]">
+        <div className="text-sm text-zinc-400 leading-relaxed bg-black/20 p-5 rounded-2xl border border-white/5 min-h-[100px]">
           {value || <span className="text-zinc-700 italic">No address provided.</span>}
         </div>
       )}
