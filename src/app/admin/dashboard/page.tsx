@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 
 /* =========================
-   3D TILT METRIC CARD
+   3D TILT METRIC CARD (Mobile Tap Fix Added)
 ========================= */
 function TiltMetric({ label, value, subLabel, icon, color }: any) {
   const ref = useRef<HTMLDivElement>(null);
@@ -49,9 +49,13 @@ function TiltMetric({ label, value, subLabel, icon, color }: any) {
         bg-zinc-900/40 backdrop-blur-md border border-white/5
         transition-all duration-200 ease-out
         hover:shadow-2xl hover:shadow-black/50 ${theme.border}
+        active:scale-[0.98] cursor-pointer touch-manipulation
       `}
     >
-      <div className={`absolute inset-0 bg-gradient-to-br ${theme.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+      {/* FIX ADDED: group-active:opacity-100 
+         This ensures the gradient shows up immediately when tapped on mobile.
+      */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${theme.bg} opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-300`} />
       
       <div className="relative z-10 transform translate-z-10">
         <div className="flex justify-between items-start mb-3">
@@ -249,21 +253,15 @@ export default function AdminDashboard() {
     fetchRealData();
   }, []);
 
-  // =========================================================
-  //  PREMIUM SKELETON LOADER
-  // =========================================================
+  // SKELETON LOADER
   if (loading) return (
     <div className="space-y-8 animate-fade-in-up pb-20 perspective-1000">
-      
-      {/* Header Skeleton */}
       <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
         <div className="space-y-2">
            <div className="h-4 w-32 bg-white/5 rounded-full animate-pulse"></div>
            <div className="h-8 w-64 bg-white/5 rounded-lg animate-pulse"></div>
         </div>
       </div>
-
-      {/* Metrics Grid Skeleton */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-32 rounded-2xl bg-zinc-900/40 border border-white/5 p-5 animate-pulse flex flex-col justify-between">
@@ -278,22 +276,15 @@ export default function AdminDashboard() {
           </div>
         ))}
       </div>
-
-      {/* Main Layout Skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
          <div className="lg:col-span-2 space-y-4">
-            <div className="flex justify-between items-center">
-               <div className="h-6 w-40 bg-white/5 rounded animate-pulse" />
-            </div>
+            <div className="flex justify-between items-center"><div className="h-6 w-40 bg-white/5 rounded animate-pulse" /></div>
             <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 space-y-4 min-h-[300px]">
                {Array.from({ length: 4 }).map((_, i) => (
                  <div key={i} className="flex items-center justify-between p-2">
                     <div className="flex items-center gap-4">
                        <div className="w-10 h-10 rounded-xl bg-white/5 animate-pulse" />
-                       <div className="space-y-2">
-                          <div className="h-4 w-32 bg-white/5 rounded animate-pulse" />
-                          <div className="h-3 w-48 bg-white/5 rounded animate-pulse" />
-                       </div>
+                       <div className="space-y-2"><div className="h-4 w-32 bg-white/5 rounded animate-pulse" /><div className="h-3 w-48 bg-white/5 rounded animate-pulse" /></div>
                     </div>
                     <div className="h-4 w-16 bg-white/5 rounded animate-pulse" />
                  </div>
@@ -304,9 +295,7 @@ export default function AdminDashboard() {
             <div className="h-72 bg-white/5 rounded-3xl animate-pulse" />
             <div className="space-y-4">
                <div className="h-6 w-32 bg-white/5 rounded animate-pulse" />
-               <div className="grid grid-cols-2 gap-3">
-                 {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 bg-white/5 rounded-2xl animate-pulse" />)}
-               </div>
+               <div className="grid grid-cols-2 gap-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 bg-white/5 rounded-2xl animate-pulse" />)}</div>
             </div>
          </div>
       </div>
@@ -315,8 +304,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in-up pb-20 perspective-1000">
-      
-      {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -328,77 +315,40 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* --- 3D METRICS GRID --- */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {cards.map((card) => (
-          <TiltMetric 
-            key={card.id}
-            label={card.label} 
-            value={card.value} 
-            subLabel={card.subLabel}
-            color={card.color}
-            icon={card.icon} 
-          />
+          <TiltMetric key={card.id} label={card.label} value={card.value} subLabel={card.subLabel} color={card.color} icon={card.icon} />
         ))}
-        {/* Fallback if somehow everything is 0 (Unlikely) */}
-        {cards.length < 3 && (
-           <TiltMetric label="System Ready" value="Active" subLabel="Online" color="emerald" icon={<Activity className="w-5 h-5"/>} />
-        )}
+        {cards.length < 3 && <TiltMetric label="System Ready" value="Active" subLabel="Online" color="emerald" icon={<Activity className="w-5 h-5"/>} />}
       </div>
 
-      {/* --- MAIN LAYOUT --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* LEFT COLUMN: ACTIVITY FEED */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-zinc-500" /> Recent Admissions
-            </h2>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2"><Activity className="w-4 h-4 text-zinc-500" /> Recent Admissions</h2>
             <Link href="/admin/students" className="text-xs text-indigo-400 hover:text-indigo-300">View All</Link>
           </div>
-          
           <div className="bg-zinc-900/40 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden p-1 min-h-[300px]">
             {recentAdmissions.length === 0 ? (
-               <div className="flex flex-col items-center justify-center h-full py-12 text-zinc-500">
-                 <p className="text-sm">No recent activity found.</p>
-               </div>
+               <div className="flex flex-col items-center justify-center h-full py-12 text-zinc-500"><p className="text-sm">No recent activity found.</p></div>
             ) : (
               recentAdmissions.map((student) => (
                 <div key={student.id} className="group flex items-center justify-between p-4 hover:bg-white/5 rounded-2xl transition-colors cursor-default">
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-indigo-500/10 text-indigo-400`}>
-                      <UserPlus className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">{student.full_name}</p>
-                      <p className="text-xs text-zinc-500">Admitted to Class {student.class} - {student.section}</p>
-                    </div>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-indigo-500/10 text-indigo-400`}><UserPlus className="w-5 h-5" /></div>
+                    <div><p className="text-sm font-bold text-white">{student.full_name}</p><p className="text-xs text-zinc-500">Admitted to Class {student.class} - {student.section}</p></div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold font-mono text-emerald-400">New Student</p>
-                    <p className="text-[10px] text-zinc-600">
-                      {new Date(student.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </p>
-                  </div>
+                  <div className="text-right"><p className="text-xs font-bold font-mono text-emerald-400">New Student</p><p className="text-[10px] text-zinc-600">{new Date(student.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p></div>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: CALENDAR & ACTIONS */}
         <div className="space-y-6 flex flex-col">
-          
-          {/* Calendar Widget */}
           <CalendarWidget />
-
-          {/* Quick Actions (Redesigned Grid) */}
           <div className="flex-1 flex flex-col">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
-              <Clock className="w-4 h-4 text-zinc-500" /> Quick Actions
-            </h2>
-            
+            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4"><Clock className="w-4 h-4 text-zinc-500" /> Quick Actions</h2>
             <div className="grid grid-cols-2 gap-3 h-full">
               <QuickActionBtn href="/admin/students/add" title="Add Student" icon={<UserPlus className="w-5 h-5" />} color="indigo" />
               <QuickActionBtn href="/admin/fees" title="Collect Fees" icon={<Wallet className="w-5 h-5" />} color="emerald" />
@@ -406,22 +356,13 @@ export default function AdminDashboard() {
               <QuickActionBtn href="/admin/inventory/uniforms/issue" title="Uniforms" icon={<Shirt className="w-5 h-5" />} color="rose" />
             </div>
           </div>
-
         </div>
-
       </div>
-
-      <style jsx global>{`
-        .perspective-1000 { perspective: 1000px; }
-        .translate-z-10 { transform: translateZ(20px); }
-      `}</style>
+      <style jsx global>{` .perspective-1000 { perspective: 1000px; } .translate-z-10 { transform: translateZ(20px); } `}</style>
     </div>
   );
 }
 
-/* =========================
-   NEW QUICK ACTION BUTTON (Grid Style)
-========================= */
 function QuickActionBtn({ href, title, icon, color }: any) {
   const colors: any = {
     indigo: 'bg-indigo-500/10 text-indigo-400 hover:border-indigo-500/50',
@@ -429,17 +370,8 @@ function QuickActionBtn({ href, title, icon, color }: any) {
     amber: 'bg-amber-500/10 text-amber-400 hover:border-amber-500/50',
     rose: 'bg-rose-500/10 text-rose-400 hover:border-rose-500/50',
   };
-
   return (
-    <Link 
-      href={href} 
-      className={`
-        flex flex-col items-center justify-center gap-3 p-4 rounded-2xl 
-        bg-zinc-900 border border-white/5 
-        transition-all duration-200 active:scale-95 hover:bg-zinc-800
-        ${colors[color]}
-      `}
-    >
+    <Link href={href} className={`flex flex-col items-center justify-center gap-3 p-4 rounded-2xl bg-zinc-900 border border-white/5 transition-all duration-200 active:scale-95 hover:bg-zinc-800 ${colors[color]}`}>
       <div className="p-3 rounded-xl bg-black/20">{icon}</div>
       <span className="text-xs font-bold text-center text-zinc-300">{title}</span>
     </Link>
