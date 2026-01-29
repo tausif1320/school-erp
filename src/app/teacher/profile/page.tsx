@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 /* =========================
-   TYPES & HELPERS
+   TYPES
 ========================= */
 type Attendance = {
   date: string;
@@ -50,6 +50,7 @@ export default function TeacherProfile() {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
 
+  /* --- LOAD DATA --- */
   useEffect(() => {
     async function initProfile() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -76,6 +77,7 @@ export default function TeacherProfile() {
     initProfile();
   }, [router]);
 
+  /* --- SAVE CHANGES --- */
   async function saveChanges() {
     if (!teacher) return;
     setSaving(true);
@@ -97,6 +99,7 @@ export default function TeacherProfile() {
     setSaving(false);
   }
 
+  /* --- FIXED TIME FORMATTER --- */
   const formatTime = (dateString: string | null) => {
     if (!dateString) return '--:--';
     const parts = dateString.split(' ');
@@ -111,25 +114,31 @@ export default function TeacherProfile() {
 
   if (loading) return (
     <div className="h-[90vh] flex flex-col items-center justify-center bg-zinc-950 relative overflow-hidden">
-        {/* --- LOADING BACKGROUND --- */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:30px_30px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
-        <div className="relative z-10 flex flex-col items-center">
-            <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-            <p className="mt-4 text-zinc-500 text-xs font-mono uppercase tracking-widest animate-pulse">Authenticating Identity...</p>
-        </div>
+      {/* Loading Background - Consistent with Main */}
+      <div className="fixed inset-0 bg-zinc-950 z-[-50]" />
+      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[100px] animate-pulse-slow z-[-40]" />
+      <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+          <p className="mt-4 text-zinc-500 text-xs font-mono uppercase tracking-widest animate-pulse">Authenticating Identity...</p>
+      </div>
     </div>
   );
 
   if (!teacher) return null;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-200 pb-20 selection:bg-indigo-500/30 overflow-hidden relative">
+    <div className="min-h-screen text-zinc-200 pb-20 selection:bg-indigo-500/30 relative">
       
-      {/* --- PREMIUM BACKGROUND SYSTEM --- */}
-      <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:30px_30px] md:bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none z-0" />
-      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-500/20 blur-[100px] animate-pulse-slow pointer-events-none z-0" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/10 blur-[100px] animate-pulse-slow delay-1000 pointer-events-none z-0" />
-      <div className="fixed inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay z-0"></div>
+      {/* --- SEAMLESS BACKGROUND SYSTEM (NO GRIDS, JUST GLOW) --- */}
+      {/* 1. Base Layer (Solid Dark) */}
+      <div className="fixed inset-0 bg-zinc-950 z-[-50]" />
+      
+      {/* 2. Color Blobs (Behind Content) */}
+      <div className="fixed top-[-20%] left-[-10%] w-[700px] h-[700px] rounded-full bg-indigo-600/10 blur-[120px] mix-blend-screen z-[-40]" />
+      <div className="fixed bottom-[-20%] right-[-10%] w-[700px] h-[700px] rounded-full bg-teal-600/10 blur-[120px] mix-blend-screen z-[-40]" />
+      
+      {/* 3. Noise Texture (Subtle Grain) */}
+      <div className="fixed inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay z-[-30] pointer-events-none"></div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto p-4 md:p-8 lg:p-12">
         
@@ -152,7 +161,7 @@ export default function TeacherProfile() {
               active:scale-95 active:shadow-inner touch-manipulation
               ${editMode 
                 ? 'bg-white text-black hover:bg-zinc-200' 
-                : 'bg-zinc-900 border border-white/10 hover:border-white/30 text-white active:bg-zinc-800'}
+                : 'bg-zinc-900/80 border border-white/10 hover:border-white/30 text-white active:bg-zinc-800'}
             `}
           >
             <div className="relative z-10 flex items-center gap-2">
@@ -165,7 +174,7 @@ export default function TeacherProfile() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* --- LEFT COLUMN --- */}
+          {/* --- LEFT COLUMN: STICKY IDENTITY CARD --- */}
           <div className="lg:col-span-4 space-y-6">
             <div className="sticky top-24">
               
@@ -212,7 +221,7 @@ export default function TeacherProfile() {
               </div>
 
               {/* Quick Contact Card */}
-              <div className="mt-6 bg-zinc-900/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md">
+              <div className="mt-6 bg-zinc-900/40 border border-white/5 rounded-3xl p-6 backdrop-blur-md shadow-lg">
                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Contact Info</h3>
                 <EditableInput label="Phone Number" value={teacher.phone} edit={editMode} onChange={(v) => setTeacher({...teacher, phone: v})} icon={<Phone className="w-3.5 h-3.5" />} />
               </div>
@@ -220,12 +229,12 @@ export default function TeacherProfile() {
             </div>
           </div>
 
-          {/* --- RIGHT COLUMN --- */}
+          {/* --- RIGHT COLUMN: DETAILS BENTO GRID --- */}
           <div className="lg:col-span-8 space-y-6">
             
             {/* 1. PERSONAL & FAMILY */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm">
+              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm shadow-lg">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-full bg-indigo-500/10 text-indigo-400"><User className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Personal</h3>
@@ -237,7 +246,7 @@ export default function TeacherProfile() {
                 </div>
               </div>
 
-              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm">
+              <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[32px] hover:bg-zinc-900/50 transition-colors backdrop-blur-sm shadow-lg">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 rounded-full bg-pink-500/10 text-pink-400"><Users className="w-4 h-4" /></div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-widest">Family</h3>
@@ -250,8 +259,8 @@ export default function TeacherProfile() {
               </div>
             </div>
 
-            {/* 2. ADDRESS */}
-            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm">
+            {/* 2. ADDRESS (Full Width) */}
+            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm shadow-lg">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-400"><MapPin className="w-4 h-4" /></div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest">Residency</h3>
@@ -263,7 +272,7 @@ export default function TeacherProfile() {
             </div>
 
             {/* 3. ATTENDANCE TIMELINE */}
-            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm">
+            <div className="bg-zinc-900/30 border border-white/5 p-6 md:p-8 rounded-[32px] backdrop-blur-sm shadow-lg">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-full bg-amber-500/10 text-amber-400"><Clock className="w-4 h-4" /></div>
@@ -317,7 +326,7 @@ export default function TeacherProfile() {
 }
 
 /* =========================
-   UI HELPERS
+   PREMIUM UI HELPERS
 ========================= */
 
 function EditableInput({ label, value, edit, onChange, type = 'text', icon, locked = false }: { label: string; value: string | null; edit: boolean; onChange: (v: string) => void; icon: React.ReactNode; type?: string; locked?: boolean }) {
@@ -330,12 +339,12 @@ function EditableInput({ label, value, edit, onChange, type = 'text', icon, lock
       {edit && !locked ? (
         <input 
           type={type}
-          className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all font-medium placeholder:text-zinc-700"
+          className="w-full bg-zinc-950/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all font-medium placeholder:text-zinc-700"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <div className="text-sm text-zinc-200 font-medium pl-1 py-1 border-b border-white/5 truncate">
+        <div className="text-sm text-zinc-200 font-medium pl-1 py-1 border-b border-white/5 truncate h-[30px] flex items-center">
           {value || <span className="text-zinc-700 italic">Not set</span>}
         </div>
       )}
@@ -349,7 +358,7 @@ function EditableTextarea({ label, value, edit, onChange }: { label: string; val
       <span className="text-[10px] font-bold uppercase text-zinc-500 mb-3 tracking-widest">{label}</span>
       {edit ? (
         <textarea 
-          className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all min-h-[100px] resize-none leading-relaxed"
+          className="w-full bg-zinc-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all min-h-[100px] resize-none leading-relaxed"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
         />
