@@ -143,7 +143,13 @@ export default function TeacherDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
 
-  useEffect(() => { initDashboard(); }, [selectedMonth]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      initDashboard();
+
+    },1000);
+     return () => clearTimeout(timer);
+  }, [selectedMonth]);
 
   async function initDashboard() {
     setLoading(true);
@@ -228,7 +234,7 @@ export default function TeacherDashboard() {
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-10 dark:opacity-20 group-hover:opacity-30 transition duration-500"></div>
             <div className="relative flex items-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-2.5 shadow-sm w-full md:w-auto">
                <CalendarDays className="w-4 h-4 text-zinc-500 dark:text-zinc-400 mr-3" />
-               <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent border-none outline-none text-sm text-zinc-700 dark:text-white w-full md:w-32 cursor-pointer font-medium" />
+               <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent border-none outline-none text-sm text-zinc-700 dark:text-white w-full md:w-auto cursor-pointer font-medium" />
             </div>
           </div>
           {todayRecord && !todayRecord.raw_check_out && (
