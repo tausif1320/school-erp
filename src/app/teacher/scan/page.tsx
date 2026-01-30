@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
-import { QrCode, MapPin, Zap, ShieldCheck } from 'lucide-react';
+import { QrCode, MapPin, Zap, ShieldCheck, Wifi, Maximize } from 'lucide-react';
 
 /* =========================
    IST HELPER (Logic Unchanged)
@@ -46,7 +46,7 @@ export default function TeacherScanPage() {
         'reader',
         { 
           fps: 10, 
-          qrbox: 260,
+          qrbox: 280, // Slightly larger box
           aspectRatio: 1.0,
           showTorchButtonIfSupported: true,
           videoConstraints: {
@@ -184,104 +184,128 @@ export default function TeacherScanPage() {
   }, []);
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center p-4 animate-fade-in-up">
+    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
       
-      {/* SCANNER CONTAINER */}
-      <div className="w-full max-w-sm relative">
+      {/* --- PREMIUM BACKGROUND (Same as Profile) --- */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+         <div className="absolute top-[-10%] left-[-20%] w-[100%] h-[60%] rounded-full bg-gradient-to-br from-indigo-600/20 to-purple-600/20 blur-[100px] animate-pulse-slow"></div>
+         <div className="absolute bottom-[-10%] right-[-20%] w-[100%] h-[60%] rounded-full bg-emerald-600/20 blur-[100px] animate-pulse-slow delay-1000"></div>
+         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 mix-blend-overlay"></div>
+      </div>
+
+      {/* --- MAIN CARD --- */}
+      <div className="relative z-10 w-full max-w-md bg-zinc-900/40 backdrop-blur-xl border border-white/10 rounded-[40px] shadow-2xl overflow-hidden animate-fade-in-up">
         
-        {/* Card Header */}
-        <div className="absolute top-0 left-0 right-0 z-20 p-6 text-center bg-gradient-to-b from-black/80 to-transparent pt-8 rounded-t-3xl">
-          <h1 className="text-xl font-bold text-white tracking-tight flex items-center justify-center gap-2">
-            <QrCode className="w-5 h-5 text-indigo-400" /> 
-            Scan Attendance
-          </h1>
-          <p className="text-xs text-zinc-300 mt-1 font-medium">Align QR code within the frame</p>
-        </div>
-
-        {/* The Actual Scanner */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl bg-black">
-          
-          {/* Overlay UI (The "Professional" Look) */}
-          {isScanning && (
-            <div className="absolute inset-0 z-10 pointer-events-none">
-              {/* Corners */}
-              <div className="absolute top-6 left-6 w-12 h-12 border-t-4 border-l-4 border-indigo-500 rounded-tl-xl"></div>
-              <div className="absolute top-6 right-6 w-12 h-12 border-t-4 border-r-4 border-indigo-500 rounded-tr-xl"></div>
-              <div className="absolute bottom-6 left-6 w-12 h-12 border-b-4 border-l-4 border-indigo-500 rounded-bl-xl"></div>
-              <div className="absolute bottom-6 right-6 w-12 h-12 border-b-4 border-r-4 border-indigo-500 rounded-br-xl"></div>
-              
-              {/* Laser Animation */}
-              <div className="absolute top-[10%] left-[10%] right-[10%] h-0.5 bg-red-500/80 shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-scan"></div>
-            </div>
-          )}
-
-          {/* Success Overlay */}
-          {!isScanning && (
-            <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in">
-              <ShieldCheck className="w-16 h-16 text-emerald-500 mb-4 animate-bounce" />
-              <h2 className="text-xl font-bold text-white">Processing...</h2>
-              <p className="text-zinc-400 text-sm mt-1">Verifying credentials</p>
-            </div>
-          )}
-
-          {/* Library Mount Point */}
-          <div id="reader" className="w-full aspect-square bg-zinc-900" />
-        </div>
-
-        {/* Footer Status */}
-        <div className="mt-6 flex items-center justify-center gap-6">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 border border-white/10 text-xs font-medium text-zinc-400">
-            <MapPin className="w-3.5 h-3.5 text-emerald-500" />
-            <span>GPS Active</span>
+        {/* HEADER */}
+        <div className="p-8 pb-4 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-6">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">System Active</span>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 border border-white/10 text-xs font-medium text-zinc-400">
-            <Zap className="w-3.5 h-3.5 text-yellow-500" />
-            <span>Auto-Focus</span>
+          
+          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">Scan Attendance</h1>
+          <p className="text-zinc-400 text-sm">Align the classroom QR code within the frame.</p>
+        </div>
+
+        {/* SCANNER VIEWPORT */}
+        <div className="px-6 pb-8">
+          <div className="relative aspect-square rounded-[32px] overflow-hidden border-2 border-white/10 bg-black shadow-inner group">
+            
+            {/* 1. The Camera Feed ID (Library mounts here) */}
+            <div id="reader" className="w-full h-full object-cover" />
+
+            {/* 2. HUD Overlay (Visible only when scanning) */}
+            {isScanning && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                {/* Darken edges for focus */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_55%,rgba(0,0,0,0.8)_100%)]" />
+                
+                {/* Scanner Laser */}
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent shadow-[0_0_20px_rgba(16,185,129,0.8)] animate-scan-laser opacity-80" />
+
+                {/* Corner Brackets */}
+                <div className="absolute top-6 left-6 w-16 h-16 border-t-[3px] border-l-[3px] border-emerald-500 rounded-tl-2xl opacity-80" />
+                <div className="absolute top-6 right-6 w-16 h-16 border-t-[3px] border-r-[3px] border-emerald-500 rounded-tr-2xl opacity-80" />
+                <div className="absolute bottom-6 left-6 w-16 h-16 border-b-[3px] border-l-[3px] border-emerald-500 rounded-bl-2xl opacity-80" />
+                <div className="absolute bottom-6 right-6 w-16 h-16 border-b-[3px] border-r-[3px] border-emerald-500 rounded-br-2xl opacity-80" />
+
+                {/* Center Reticle */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                  <Maximize className="w-12 h-12 text-white stroke-[1]" />
+                </div>
+              </div>
+            )}
+
+            {/* 3. Processing Overlay (When logic runs) */}
+            {!isScanning && (
+              <div className="absolute inset-0 z-50 bg-zinc-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full animate-pulse" />
+                  <ShieldCheck className="relative w-16 h-16 text-emerald-500 mb-4 animate-bounce" />
+                </div>
+                <h2 className="text-xl font-bold text-white tracking-tight">Verifying Credentials</h2>
+                <div className="flex items-center gap-2 mt-2 text-xs text-zinc-400 font-mono bg-white/5 px-3 py-1 rounded-full">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  ENCRYPTED CONNECTION
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* FOOTER STATUS BARS */}
+        <div className="px-8 pb-8">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-zinc-900/50 border border-white/5 p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 backdrop-blur-sm">
+              <MapPin className="w-4 h-4 text-indigo-400" />
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Location</span>
+              <span className="text-xs font-medium text-white">High Accuracy</span>
+            </div>
+            <div className="bg-zinc-900/50 border border-white/5 p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 backdrop-blur-sm">
+              <Wifi className="w-4 h-4 text-emerald-400" />
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Network</span>
+              <span className="text-xs font-medium text-white">Online</span>
+            </div>
           </div>
         </div>
 
       </div>
 
-      {/* Global Styles to Override/Hide Ugly Library UI */}
+      {/* --- GLOBAL STYLE OVERRIDES FOR LIBRARY --- */}
       <style jsx global>{`
-        /* Hide the library's default stop button and header links */
+        /* Hide all library UI junk */
         #reader__dashboard_section_csr span, 
-        #reader__dashboard_section_swaplink {
+        #reader__dashboard_section_swaplink,
+        #reader__dashboard_section_csr select {
           display: none !important;
         }
         
-        /* Make the camera permission button look decent just in case it shows */
-        #reader__dashboard_section_csr button {
-          background: #4F46E5 !important;
-          color: white !important;
-          border: none !important;
-          padding: 10px 20px !important;
-          border-radius: 12px !important;
-          font-weight: 600 !important;
-          font-size: 14px !important;
-          margin-top: 20px !important;
-        }
-
-        /* Ensure video fills the curved container */
-        #reader video {
-          object-fit: cover !important;
-          border-radius: 24px !important;
-        }
-        
-        /* Remove default borders */
+        /* Container cleanup */
         #reader {
           border: none !important;
+          background: #000 !important;
+        }
+
+        /* Video Feed Fit */
+        #reader video {
+          object-fit: cover !important;
+          width: 100% !important;
+          height: 100% !important;
+          border-radius: 32px !important; /* Match container */
         }
 
         /* Scan Animation */
-        @keyframes scan {
-          0% { top: 15%; opacity: 0; }
+        @keyframes scan-laser {
+          0% { top: 0%; opacity: 0; }
           10% { opacity: 1; }
           90% { opacity: 1; }
-          100% { top: 85%; opacity: 0; }
+          100% { top: 100%; opacity: 0; }
         }
-        .animate-scan {
-          animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        .animate-scan-laser {
+          animation: scan-laser 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
       `}</style>
     </div>
